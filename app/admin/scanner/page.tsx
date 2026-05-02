@@ -10,7 +10,7 @@ interface WasteCatalogItem {
   name: string;
   category: string;
   pricePerKg: number;
-  updatedAt: Date;
+  updatedAt: string;
 }
 
 interface UserData {

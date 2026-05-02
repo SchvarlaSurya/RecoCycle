@@ -19,43 +19,49 @@ export async function getDashboardOverviewStats(): Promise<{ success: boolean; d
     if (!admin) return { success: false, error: "Unauthorized" };
 
     // Total Balance Calculation (Calculated from transactions - withdrawals)
-    const balanceResult = await sql<{ total: number }[]>`
+    const balanceResultRows = await sql`
       SELECT (
         (SELECT COALESCE(SUM(reward), 0) FROM transactions WHERE status = 'verified' OR status = 'Selesai') -
         (SELECT COALESCE(SUM(amount), 0) FROM withdrawals WHERE status != 'Ditolak' AND status != 'rejected')
       ) as total
     `;
+    const balanceResult = balanceResultRows as any[];
 
     // Today Weight
-    const todayWeightResult = await sql<{ total: number }[]>`
+    const todayWeightResultRows = await sql`
       SELECT COALESCE(SUM(weight), 0) as total 
       FROM transactions 
       WHERE (status = 'verified' OR status = 'Selesai') AND DATE(date) = CURRENT_DATE
     `;
+    const todayWeightResult = todayWeightResultRows as any[];
 
     // Pending Count
-    const pendingResult = await sql<{ count: number }[]>`SELECT COUNT(*) as count FROM transactions WHERE status = 'pending' OR status = 'Menunggu Verifikasi'`;
+    const pendingResultRows = await sql`SELECT COUNT(*) as count FROM transactions WHERE status = 'pending' OR status = 'Menunggu Verifikasi'`;
+    const pendingResult = pendingResultRows as any[];
 
     // Active Nasabah Count
-    const activeNasabahResult = await sql<{ count: number }[]>`SELECT COUNT(*) as count FROM user_profiles`;
+    const activeNasabahResultRows = await sql`SELECT COUNT(*) as count FROM user_profiles`;
+    const activeNasabahResult = activeNasabahResultRows as any[];
 
     // Monthly By Category
-    const monthlyCategoryResult = await sql<{ type: string; total: number }[]>`
+    const monthlyCategoryResultRows = await sql`
       SELECT type, COALESCE(SUM(weight), 0) as total
       FROM transactions
       WHERE (status = 'verified' OR status = 'Selesai') AND DATE_TRUNC('month', date) = DATE_TRUNC('month', CURRENT_DATE)
       GROUP BY type
       ORDER BY total DESC
     `;
+    const monthlyCategoryResult = monthlyCategoryResultRows as any[];
 
     // Weekly Data
-    const weeklyDataResult = await sql<{ dt: Date; total: number }[]>`
+    const weeklyDataResultRows = await sql`
       SELECT DATE(date) as dt, COALESCE(SUM(weight), 0) as total
       FROM transactions
       WHERE (status = 'verified' OR status = 'Selesai') AND date >= CURRENT_DATE - INTERVAL '6 days'
       GROUP BY DATE(date)
       ORDER BY dt ASC
     `;
+    const weeklyDataResult = weeklyDataResultRows as any[];
 
     // Map weekly setting up empty days to zero if not found
     const weeklyMap: Record<string, number> = {};

@@ -45,7 +45,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
 
       {newlyUnlocked && newlyUnlocked.length > 0 && <BadgePopup badges={newlyUnlocked} />}
-      <RewardToastAnnouncer claimableCount={claimableCount} />
+      <RewardToastAnnouncer claimableCount={claimableCount ?? 0} />
     </div>
   );
 }

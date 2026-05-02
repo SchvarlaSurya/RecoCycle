@@ -8,7 +8,12 @@ import { toast } from "sonner";
 import { sendBalanceNotificationEmail } from "@/app/actions/notification";
 import { submitDeposit, getWasteCatalog } from "@/app/actions/transaction";
 
-type WasteCatalogItem = NonNullable<Awaited<ReturnType<typeof getWasteCatalog>>["data"]>[number];
+type WasteCatalogItem = {
+  id: string;
+  name: string;
+  category: string;
+  pricePerKg: number;
+};
 
 export default function SetorSampahPage() {
   const { user } = useUser();

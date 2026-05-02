@@ -18,13 +18,15 @@ interface UserProfileRow {
   available_balance: number;
   kumulatif_sampah_kg: number;
   total_deposits: number;
+  phone_number: string | null;
+  address: string | null;
 }
 
 interface TransactionRow {
   id: number;
   tx_id: string;
   user_id: string;
-  waste_type: string;
+  type: string;
   waste_type_id: string;
   estimated_weight: number;
   actual_weight: number | null;
@@ -80,7 +82,8 @@ async function createNotification(userId: string, title: string, message: string
 }
 
 async function calculateTierFromConfigs(cumulativeWeight: number): Promise<{ tier: string; bonusPercentage: number; nextTierWeight: number | null }> {
-  const configs = await sql<TierConfigRow[]>`SELECT * FROM tier_configs WHERE is_active = true ORDER BY min_weight_kg ASC`;
+  const configsRows = await sql`SELECT * FROM tier_configs WHERE is_active = true ORDER BY min_weight_kg ASC`;
+  const configs = configsRows as TierConfigRow[];
   
   if (configs.length === 0) {
     if (cumulativeWeight >= 500) return { tier: "Platinum", bonusPercentage: 10, nextTierWeight: null };
@@ -120,7 +123,8 @@ export async function verifyTransaction(
   }
 
   try {
-    const txRows = await sql<TransactionRow[]>`SELECT * FROM transactions WHERE tx_id = ${txId} AND status = 'pending'`;
+    const txRowsResult = await sql`SELECT * FROM transactions WHERE tx_id = ${txId} AND status = 'pending'`;
+    const txRows = txRowsResult as TransactionRow[];
     
     if (txRows.length === 0) {
       return { success: false, error: "Transaction not found or not pending" };
@@ -134,7 +138,8 @@ export async function verifyTransaction(
       ? Number(catalogRows[0].price_per_kg) 
       : Number(transaction.price_per_kg || 0);
     
-    const profileRows = await sql<UserProfileRow[]>`SELECT * FROM user_profiles WHERE user_id = ${transaction.user_id}`;
+    const profileRowsResult = await sql`SELECT * FROM user_profiles WHERE user_id = ${transaction.user_id}`;
+    const profileRows = profileRowsResult as UserProfileRow[];
     
     let cumulativeWeight = 0;
     let currentTier = "Bronze";
@@ -204,7 +209,8 @@ export async function rejectTransaction(
   }
 
   try {
-    const txRows = await sql<TransactionRow[]>`SELECT * FROM transactions WHERE tx_id = ${txId} AND status = 'pending'`;
+    const txRowsResult = await sql`SELECT * FROM transactions WHERE tx_id = ${txId} AND status = 'pending'`;
+    const txRows = txRowsResult as TransactionRow[];
     
     if (txRows.length === 0) {
       return { success: false, error: "Transaction not found or not pending" };
@@ -251,41 +257,41 @@ export async function approveWithdrawal(
   }
 
   try {
-    const result = await sql.begin(async (tx) => {
-      const wdRows = await tx<WithdrawalRow[]>`SELECT * FROM withdrawals WHERE wd_id = ${wdId} AND status = 'Menunggu Verifikasi' FOR UPDATE`;
-      
-      if (wdRows.length === 0) {
-        throw new Error("Withdrawal not found or not pending");
-      }
+    const wdRowsResult = await sql`SELECT * FROM withdrawals WHERE wd_id = ${wdId} AND status = 'Menunggu Verifikasi'`;
+    const wdRows = wdRowsResult as WithdrawalRow[];
+    
+    if (wdRows.length === 0) {
+      throw new Error("Withdrawal not found or not pending");
+    }
 
-      const withdrawal = wdRows[0];
-      const amount = Number(withdrawal.amount);
+    const withdrawal = wdRows[0];
+    const amount = Number(withdrawal.amount);
 
-      const profileRows = await tx<UserProfileRow[]>`SELECT * FROM user_profiles WHERE user_id = ${withdrawal.user_id} FOR UPDATE`;
-      const currentBalance = profileRows.length > 0 ? Number(profileRows[0].available_balance) : 0;
+    const profileRowsResult = await sql`SELECT * FROM user_profiles WHERE user_id = ${withdrawal.user_id}`;
+    const profileRows = profileRowsResult as UserProfileRow[];
+    const currentBalance = profileRows.length > 0 ? Number(profileRows[0].available_balance) : 0;
 
-      if (currentBalance < amount) {
-        throw new Error("Insufficient balance");
-      }
+    if (currentBalance < amount) {
+      throw new Error("Insufficient balance");
+    }
 
-      await tx`
-        UPDATE withdrawals 
-        SET status = 'Disetujui',
-            processed_by = ${admin.id},
-            processed_at = NOW()
-        WHERE wd_id = ${wdId}
-      `;
+    await sql`
+      UPDATE withdrawals 
+      SET status = 'Disetujui',
+          processed_by = ${admin.id},
+          processed_at = NOW()
+      WHERE wd_id = ${wdId}
+    `;
 
-      await tx`
-        UPDATE user_profiles
-        SET available_balance = available_balance - ${amount},
-            total_withdrawals = COALESCE(total_withdrawals, 0) + 1,
-            updated_at = NOW()
-        WHERE user_id = ${withdrawal.user_id}
-      `;
+    await sql`
+      UPDATE user_profiles
+      SET available_balance = available_balance - ${amount},
+          total_withdrawals = COALESCE(total_withdrawals, 0) + 1,
+          updated_at = NOW()
+      WHERE user_id = ${withdrawal.user_id}
+    `;
 
-      return { withdrawal, amount };
-    });
+    const result = { withdrawal, amount };
 
     await createNotification(
       result.withdrawal.user_id,
@@ -316,35 +322,34 @@ export async function rejectWithdrawal(
   }
 
   try {
-    const result = await sql.begin(async (tx) => {
-      const wdRows = await tx<WithdrawalRow[]>`SELECT * FROM withdrawals WHERE wd_id = ${wdId} AND status = 'Menunggu Verifikasi' FOR UPDATE`;
-      
-      if (wdRows.length === 0) {
-        throw new Error("Withdrawal not found or not pending");
-      }
+    const wdRowsResult = await sql`SELECT * FROM withdrawals WHERE wd_id = ${wdId} AND status = 'Menunggu Verifikasi'`;
+    const wdRows = wdRowsResult as WithdrawalRow[];
+    
+    if (wdRows.length === 0) {
+      throw new Error("Withdrawal not found or not pending");
+    }
 
-      const withdrawal = wdRows[0];
-      const lockedAmount = Number(withdrawal.locked_amount) || Number(withdrawal.amount);
+    const withdrawal = wdRows[0];
+    const lockedAmount = Number(withdrawal.locked_amount) || Number(withdrawal.amount);
 
-      await tx`
-        UPDATE withdrawals 
-        SET status = 'Ditolak',
-            rejection_reason = ${reason},
-            processed_by = ${admin.id},
-            processed_at = NOW()
-        WHERE wd_id = ${wdId}
-      `;
+    await sql`
+      UPDATE withdrawals 
+      SET status = 'Ditolak',
+          rejection_reason = ${reason},
+          processed_by = ${admin.id},
+          processed_at = NOW()
+      WHERE wd_id = ${wdId}
+    `;
 
-      await tx`
-        INSERT INTO user_profiles (user_id, available_balance, updated_at)
-        VALUES (${withdrawal.user_id}, ${lockedAmount}, NOW())
-        ON CONFLICT (user_id) DO UPDATE SET
-          available_balance = user_profiles.available_balance + ${lockedAmount},
-          updated_at = NOW()
-      `;
+    await sql`
+      INSERT INTO user_profiles (user_id, available_balance, updated_at)
+      VALUES (${withdrawal.user_id}, ${lockedAmount}, NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        available_balance = user_profiles.available_balance + ${lockedAmount},
+        updated_at = NOW()
+    `;
 
-      return { withdrawal, lockedAmount };
-    });
+    const result = { withdrawal, lockedAmount };
 
     await createNotification(
       result.withdrawal.user_id,
@@ -391,7 +396,8 @@ export async function getAllUsers(): Promise<{ success: boolean; users?: UserWit
     const userIds = clerkUsers.data.map(u => u.id);
     
     // Fetch profiles (with only existing columns)
-    const profileRows = await sql<UserProfileRow[]>`SELECT * FROM user_profiles WHERE user_id = ANY(${userIds})`;
+    const profileRowsResult = await sql`SELECT * FROM user_profiles WHERE user_id = ANY(${userIds})`;
+    const profileRows = profileRowsResult as UserProfileRow[];
     
     // Fetch individual balances and stats from transactions/withdrawals
     const statsRows = await sql`
@@ -471,11 +477,12 @@ export async function getActivityLog(limit: number = 50): Promise<{ success: boo
   }
 
   try {
-    const logs = await sql<AdminActivityLogRow[]>`
+    const logsRows = await sql`
       SELECT * FROM admin_activity_logs
       ORDER BY created_at DESC
       LIMIT ${limit}
     `;
+    const logs = logsRows as AdminActivityLogRow[];
 
     return {
       success: true,
@@ -520,13 +527,15 @@ export async function getUserById(userId: string): Promise<{ success: boolean; u
     const client = await clerkClient();
     const clerkUser = await client.users.getUser(userId);
 
-    const profileRows = await sql<UserProfileRow[]>`SELECT * FROM user_profiles WHERE user_id = ${userId}`;
+    const profileRowsResult = await sql`SELECT * FROM user_profiles WHERE user_id = ${userId}`;
+    const profileRows = profileRowsResult as UserProfileRow[];
     const profile = profileRows[0] || null;
 
     const cumulativeWeight = profile ? Number(profile.kumulatif_sampah_kg) || 0 : 0;
     const tierData = await calculateTierFromConfigs(cumulativeWeight);
 
-    const balanceRows = await sql<{ total: number }[]>`SELECT COALESCE(SUM(total_reward), 0) as total FROM transactions WHERE user_id = ${userId} AND status = 'verified'`;
+    const balanceRowsResult = await sql`SELECT COALESCE(SUM(total_reward), 0) as total FROM transactions WHERE user_id = ${userId} AND status = 'verified'`;
+    const balanceRows = balanceRowsResult as { total: number }[];
     const balance = Number(balanceRows[0]?.total || 0);
 
     const user: UserWithProfile & { tierInfo: { tier: string; bonusPercentage: number; cumulativeWeight: number; nextTierWeight: number | null } } = {
@@ -570,7 +579,8 @@ export async function createAdminTransaction(
   const adminName = `${admin.firstName || ""} ${admin.lastName || ""}`.trim() || admin.username || "Admin";
 
   try {
-    const wasteRows = await sql<{ name: string; price_per_kg: number }[]>`SELECT name, price_per_kg FROM waste_catalog WHERE id = ${wasteTypeId}`;
+    const wasteRowsResult = await sql`SELECT name, price_per_kg FROM waste_catalog WHERE id = ${wasteTypeId}`;
+    const wasteRows = wasteRowsResult as { name: string; price_per_kg: number }[];
     
     if (wasteRows.length === 0) {
       return { success: false, error: "Waste type not found" };
@@ -580,7 +590,8 @@ export async function createAdminTransaction(
     const pricePerKg = Number(wasteRows[0].price_per_kg);
     const baseReward = actualWeight * pricePerKg;
 
-    const profileRows = await sql<UserProfileRow[]>`SELECT * FROM user_profiles WHERE user_id = ${userId}`;
+    const profileRowsResult = await sql`SELECT * FROM user_profiles WHERE user_id = ${userId}`;
+    const profileRows = profileRowsResult as UserProfileRow[];
     const cumulativeWeight = profileRows[0] ? Number(profileRows[0].kumulatif_sampah_kg) || 0 : 0;
     const tierData = await calculateTierFromConfigs(cumulativeWeight);
     const tierBonus = baseReward * (tierData.bonusPercentage / 100);
@@ -590,31 +601,29 @@ export async function createAdminTransaction(
 
     const txId = `TX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    const result = await sql.begin(async (tx) => {
-      await tx`
-        INSERT INTO transactions (
-          tx_id, user_id, waste_type, waste_type_id, estimated_weight, actual_weight,
-          price_per_kg, base_reward, tier_bonus, total_reward, status, processed_by, processed_at
-        )
-        VALUES (
-          ${txId}, ${userId}, ${wasteType}, ${wasteTypeId}, ${actualWeight}, ${actualWeight},
-          ${pricePerKg}, ${baseReward}, ${tierBonus}, ${calculatedTotalReward}, 'verified', ${admin.id}, NOW()
-        )
-      `;
+    await sql`
+      INSERT INTO transactions (
+        tx_id, user_id, type, waste_type_id, estimated_weight, actual_weight,
+        price_per_kg, base_reward, tier_bonus, total_reward, status, processed_by, processed_at
+      )
+      VALUES (
+        ${txId}, ${userId}, ${wasteType}, ${wasteTypeId}, ${actualWeight}, ${actualWeight},
+        ${pricePerKg}, ${baseReward}, ${tierBonus}, ${calculatedTotalReward}, 'verified', ${admin.id}, NOW()
+      )
+    `;
 
-      await tx`
-        INSERT INTO user_profiles (user_id, available_balance, kumulatif_sampah_kg, total_deposits, tier, updated_at)
-        VALUES (${userId}, ${calculatedTotalReward}, ${actualWeight}, 1, ${newTierData.tier}, NOW())
-        ON CONFLICT (user_id) DO UPDATE SET
-          available_balance = user_profiles.available_balance + ${calculatedTotalReward},
-          kumulatif_sampah_kg = user_profiles.kumulatif_sampah_kg + ${actualWeight},
-          total_deposits = user_profiles.total_deposits + 1,
-          tier = ${newTierData.tier},
-          updated_at = NOW()
-      `;
+    await sql`
+      INSERT INTO user_profiles (user_id, available_balance, kumulatif_sampah_kg, total_deposits, tier, updated_at)
+      VALUES (${userId}, ${calculatedTotalReward}, ${actualWeight}, 1, ${newTierData.tier}, NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        available_balance = user_profiles.available_balance + ${calculatedTotalReward},
+        kumulatif_sampah_kg = user_profiles.kumulatif_sampah_kg + ${actualWeight},
+        total_deposits = user_profiles.total_deposits + 1,
+        tier = ${newTierData.tier},
+        updated_at = NOW()
+    `;
 
-      return { txId, totalReward: calculatedTotalReward };
-    });
+    const result = { txId, totalReward: calculatedTotalReward };
 
     await sql`
       INSERT INTO notifications (user_id, title, message, type, is_read, created_at)

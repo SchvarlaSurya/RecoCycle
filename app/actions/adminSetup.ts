@@ -1,24 +1,68 @@
 "use server";
 
-import { currentUser, clerkClient } from "@clerk/nextjs/server";
-import { revalidatePath } from "next/cache";
+import { clerkClient } from "@clerk/nextjs/server";
 
-export async function makeMeAdmin() {
-  const user = await currentUser();
-  if (!user) return { success: false, error: "Not logged in" };
-
+export async function setUserAsAdmin(userId: string) {
   try {
     const client = await clerkClient();
-    await client.users.updateUserMetadata(user.id, {
+    await client.users.updateUserMetadata(userId, {
       publicMetadata: {
-        role: "admin",
+        isAdmin: true,
       },
     });
-    
-    revalidatePath("/");
-    return { success: true, message: `User ${user.id} is now an admin in Clerk metadata.` };
+    return { success: true, message: `User ${userId} is now an admin.` };
   } catch (error) {
-    console.error("Error setting admin role:", error);
+    console.error("Error setting admin:", error);
+    return { success: false, error: String(error) };
+  }
+}
+
+export async function findUserByEmail(email: string) {
+  try {
+    const client = await clerkClient();
+    const users = await client.users.getUserList({
+      emailAddress: [email],
+      limit: 1,
+    });
+
+    if (users.data.length === 0) {
+      return { success: false, error: "User not found" };
+    }
+
+    const user = users.data[0];
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        email: user.emailAddresses[0]?.emailAddress,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isAdmin: user.publicMetadata?.isAdmin === true,
+      }
+    };
+  } catch (error) {
+    console.error("Error finding user:", error);
+    return { success: false, error: String(error) };
+  }
+}
+
+export async function listAllUsers() {
+  try {
+    const client = await clerkClient();
+    const users = await client.users.getUserList({ limit: 100 });
+
+    return {
+      success: true,
+      users: users.data.map(u => ({
+        id: u.id,
+        email: u.emailAddresses[0]?.emailAddress,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        isAdmin: u.publicMetadata?.isAdmin === true,
+      }))
+    };
+  } catch (error) {
+    console.error("Error listing users:", error);
     return { success: false, error: String(error) };
   }
 }

@@ -30,14 +30,15 @@ export async function getUserNotifications(): Promise<Notification[]> {
     throw new Error("Unauthorized");
   }
 
-  const notifications = await sql<Notification[]>`
+  const notifications = await sql`
     SELECT id, user_id, title, message, type, is_read, related_tx_id, created_at
     FROM notifications
     WHERE user_id = ${userId}
     ORDER BY created_at DESC
   `;
+  const notificationsTyped = notifications as Notification[];
 
-  return notifications;
+  return notificationsTyped;
 }
 
 export async function getUnreadCount(): Promise<number> {
@@ -46,15 +47,13 @@ export async function getUnreadCount(): Promise<number> {
     throw new Error("Unauthorized");
   }
 
-  const result = await sql<{ count: number }[]>`
+  const result = await sql`
     SELECT COUNT(*) as count
     FROM notifications
     WHERE user_id = ${userId} AND is_read = false
   `;
-  const count = result[0]?.count ?? 0;
+  const count = (result[0] as { count: number })?.count ?? 0;
   return count;
-
-  return result?.count ?? 0;
 }
 
 export async function markAsRead(notificationId: number): Promise<{ success: boolean }> {
@@ -63,13 +62,13 @@ export async function markAsRead(notificationId: number): Promise<{ success: boo
     throw new Error("Unauthorized");
   }
 
-  const result = await execute`
+  await sql`
     UPDATE notifications
     SET is_read = true
     WHERE id = ${notificationId} AND user_id = ${userId}
   `;
 
-  return { success: result.rowCount > 0 };
+  return { success: true };
 }
 
 export async function markAllAsRead(): Promise<{ success: boolean }> {
@@ -78,7 +77,7 @@ export async function markAllAsRead(): Promise<{ success: boolean }> {
     throw new Error("Unauthorized");
   }
 
-  await execute`
+  await sql`
     UPDATE notifications
     SET is_read = true
     WHERE user_id = ${userId} AND is_read = false

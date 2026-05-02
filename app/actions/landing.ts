@@ -18,19 +18,37 @@ export async function getLandingStats(): Promise<LandingStats> {
     `;
     const totalPickups = pickupRes.length > 0 ? Number(pickupRes[0].total) : 0;
 
-    let tonnageRes: { total_weight: number | string | null }[] = [];
-    let topWastesRes: { type: string; total_weight: number | string }[] = [];
+    // 2. Total sampah terpilah bulan ini (dengan fallback jika kolom tidak ada)
+    let totalWeight = 0;
+    let topWastes: { type: string; total_weight: number }[] = [];
 
     try {
-      tonnageRes = await sql`
+      // Coba dengan actual_weight
+      const tonnageRes = await sql`
         SELECT SUM(COALESCE(actual_weight, 0)) as total_weight
         FROM transactions
         WHERE (status = 'verified' OR status = 'Selesai')
           AND date >= DATE_TRUNC('month', CURRENT_DATE)
           AND COALESCE(actual_weight, 0) > 0
       `;
+      if (tonnageRes.length > 0 && tonnageRes[0].total_weight) {
+        totalWeight = Number(tonnageRes[0].total_weight);
+      }
+    } catch {
+      // Fallback ke weight
+      const tonnageRes = await sql`
+        SELECT SUM(weight) as total_weight
+        FROM transactions
+        WHERE (status = 'verified' OR status = 'Selesai')
+          AND date >= DATE_TRUNC('month', CURRENT_DATE)
+      `;
+      if (tonnageRes.length > 0 && tonnageRes[0].total_weight) {
+        totalWeight = Number(tonnageRes[0].total_weight);
+      }
+    }
 
-      topWastesRes = await sql`
+    try {
+      const topWastesRes = await sql`
         SELECT waste_type as type, SUM(COALESCE(actual_weight, 0)) as total_weight
         FROM transactions
         WHERE (status = 'verified' OR status = 'Selesai')
@@ -39,15 +57,12 @@ export async function getLandingStats(): Promise<LandingStats> {
         ORDER BY total_weight DESC
         LIMIT 5
       `;
+      topWastes = topWastesRes.map(row => ({
+        type: String(row.type),
+        total_weight: Number(row.total_weight)
+      }));
     } catch {
-      tonnageRes = await sql`
-        SELECT SUM(weight) as total_weight
-        FROM transactions
-        WHERE (status = 'verified' OR status = 'Selesai')
-          AND date >= DATE_TRUNC('month', CURRENT_DATE)
-      `;
-
-      topWastesRes = await sql`
+      const topWastesRes = await sql`
         SELECT type, SUM(weight) as total_weight
         FROM transactions
         WHERE status = 'verified' OR status = 'Selesai'
@@ -55,19 +70,18 @@ export async function getLandingStats(): Promise<LandingStats> {
         ORDER BY total_weight DESC
         LIMIT 5
       `;
+      topWastes = topWastesRes.map(row => ({
+        type: String(row.type),
+        total_weight: Number(row.total_weight)
+      }));
     }
 
-    // 2. Total sampah terpilah bulan ini
-    const weightInKg = tonnageRes.length > 0 && tonnageRes[0].total_weight ? Number(tonnageRes[0].total_weight) : 0;
-    const totalTonnageBulanIni = weightInKg / 1000; // Konversi ke ton
+    const totalTonnageBulanIni = totalWeight / 1000;
 
     return {
       totalPickups,
       totalTonnageBulanIni,
-      topWastes: topWastesRes.map(row => ({
-        type: row.type,
-        total_weight: Number(row.total_weight)
-      }))
+      topWastes
     };
   } catch (error) {
     console.error("Gagal mengambil data landing:", error);

@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { makeMeAdmin } from "@/app/actions/adminSetup";
+import { useUser } from "@clerk/nextjs";
+import { setUserAsAdmin } from "@/app/actions/adminSetup";
 
 export default function AdminSetupPage() {
+  const { user } = useUser();
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
 
   const handlePromote = async () => {
     setStatus("loading");
     try {
-      const res = await makeMeAdmin();
+      const res = await setUserAsAdmin(user?.id || "");
       if (res.success) {
         setStatus("success");
         setMessage(res.message || "Berhasil menjadi admin!");

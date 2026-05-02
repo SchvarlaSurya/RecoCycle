@@ -179,29 +179,33 @@ export async function getLatestUserData() {
     await ensureWithdrawalColumns();
     await ensureNotificationsTable();
 
-    const [earningsResult, lockedResult, transactions, withdrawals, notifications] = await Promise.all([
-      sql<{ total: number }[]>`SELECT COALESCE(SUM(total_reward), 0) as total FROM transactions WHERE user_id = ${user.id} AND status = 'verified'`,
-      sql<{ locked: number }[]>`SELECT COALESCE(SUM(locked_amount), 0) as locked FROM withdrawals WHERE user_id = ${user.id} AND status = 'Menunggu Verifikasi'`,
-      sql<{ id: number; tx_id: string; waste_type: string; waste_type_id: string; estimated_weight: number; actual_weight: number | null; price_per_kg: number; base_reward: number | null; tier_bonus: number | null; total_reward: number | null; status: string; date: Date; created_at: Date }[]>`
-        SELECT id, tx_id, waste_type, waste_type_id, estimated_weight, actual_weight, price_per_kg, base_reward, tier_bonus, total_reward, status, date, created_at
+    const earningsResultRows = await sql`SELECT COALESCE(SUM(total_reward), 0) as total FROM transactions WHERE user_id = ${user.id} AND status = 'verified'`;
+    const lockedResultRows = await sql`SELECT COALESCE(SUM(locked_amount), 0) as locked FROM withdrawals WHERE user_id = ${user.id} AND status = 'Menunggu Verifikasi'`;
+    const transactionsRows = await sql`
+        SELECT id, tx_id, type as waste_type, waste_type_id, estimated_weight, actual_weight, price_per_kg, base_reward, tier_bonus, total_reward, status, date, created_at
         FROM transactions
         WHERE user_id = ${user.id}
         ORDER BY created_at DESC
-      `,
-      sql<{ id: number; wd_id: string; method: string; account_name: string; account_number: string; amount: number; locked_amount: number; status: string; date: Date; created_at: Date }[]>`
+      `;
+    const withdrawalsRows = await sql`
         SELECT id, wd_id, method, account_name, account_number, COALESCE(amount, 0) as amount, COALESCE(locked_amount, 0) as locked_amount, status, date, created_at
         FROM withdrawals
         WHERE user_id = ${user.id}
         ORDER BY created_at DESC
-      `,
-      sql<{ id: number; title: string; message: string; type: string; is_read: boolean; created_at: Date }[]>`
+      `;
+    const notificationsRows = await sql`
         SELECT id, title, message, type, is_read, created_at
         FROM notifications
         WHERE user_id = ${user.id}
         ORDER BY created_at DESC
         LIMIT 20
-      `
-    ]);
+      `;
+
+    const earningsResult = earningsResultRows as { total: number }[];
+    const lockedResult = lockedResultRows as { locked: number }[];
+    const transactions = transactionsRows as { id: number; tx_id: string; waste_type: string; waste_type_id: string; estimated_weight: number; actual_weight: number | null; price_per_kg: number; base_reward: number | null; tier_bonus: number | null; total_reward: number | null; status: string; date: Date; created_at: Date }[];
+    const withdrawals = withdrawalsRows as { id: number; wd_id: string; method: string; account_name: string; account_number: string; amount: number; locked_amount: number; status: string; date: Date; created_at: Date }[];
+    const notifications = notificationsRows as { id: number; title: string; message: string; type: string; is_read: boolean; created_at: Date }[];
 
     const totalEarnings = Number(earningsResult[0]?.total || 0);
     const lockedPending = Number(lockedResult[0]?.locked || 0);
@@ -271,32 +275,39 @@ export async function getLatestDashboardData() {
     await ensureWithdrawalColumns();
     await ensureNotificationsTable();
 
-    const [earningsResult, lockedResult, transactions, withdrawals, notifications, profileResult] = await Promise.all([
-      sql<{ total: number }[]>`SELECT COALESCE(SUM(total_reward), 0) as total FROM transactions WHERE user_id = ${user.id} AND status = 'verified'`,
-      sql<{ locked: number }[]>`SELECT COALESCE(SUM(locked_amount), 0) as locked FROM withdrawals WHERE user_id = ${user.id} AND status = 'Menunggu Verifikasi'`,
-      sql<{ id: number; tx_id: string; waste_type: string; waste_type_id: string; estimated_weight: number; actual_weight: number | null; price_per_kg: number; base_reward: number | null; tier_bonus: number | null; total_reward: number | null; status: string; date: Date; created_at: Date }[]>`
-        SELECT id, tx_id, waste_type, waste_type_id, estimated_weight, actual_weight, price_per_kg, base_reward, tier_bonus, total_reward, status, date, created_at
+    const [earningsResultRows, lockedResultRows, transactionsRows, withdrawalsRows, notificationsRows, profileResultRows] = await Promise.all([
+      sql`SELECT COALESCE(SUM(total_reward), 0) as total FROM transactions WHERE user_id = ${user.id} AND status = 'verified'`,
+      sql`SELECT COALESCE(SUM(locked_amount), 0) as locked FROM withdrawals WHERE user_id = ${user.id} AND status = 'Menunggu Verifikasi'`,
+      sql`
+        SELECT id, tx_id, type as waste_type, waste_type_id, estimated_weight, actual_weight, price_per_kg, base_reward, tier_bonus, total_reward, status, date, created_at
         FROM transactions
         WHERE user_id = ${user.id}
         ORDER BY created_at DESC
         LIMIT 10
       `,
-      sql<{ id: number; wd_id: string; method: string; account_name: string; account_number: string; amount: number; locked_amount: number; status: string; date: Date; created_at: Date }[]>`
+      sql`
         SELECT id, wd_id, method, account_name, account_number, COALESCE(amount, 0) as amount, COALESCE(locked_amount, 0) as locked_amount, status, date, created_at
         FROM withdrawals
         WHERE user_id = ${user.id}
         ORDER BY created_at DESC
         LIMIT 5
       `,
-      sql<{ id: number; title: string; message: string; type: string; is_read: boolean; created_at: Date }[]>`
+      sql`
         SELECT id, title, message, type, is_read, created_at
         FROM notifications
         WHERE user_id = ${user.id}
         ORDER BY created_at DESC
         LIMIT 10
       `,
-      sql<{ kumulatif_sampah_kg: number }[]>`SELECT kumulatif_sampah_kg FROM user_profiles WHERE user_id = ${user.id}`
+      sql`SELECT kumulatif_sampah_kg FROM user_profiles WHERE user_id = ${user.id}`
     ]);
+
+    const earningsResult = earningsResultRows as { total: number }[];
+    const lockedResult = lockedResultRows as { locked: number }[];
+    const transactions = transactionsRows as { id: number; tx_id: string; waste_type: string; waste_type_id: string; estimated_weight: number; actual_weight: number | null; price_per_kg: number; base_reward: number | null; tier_bonus: number | null; total_reward: number | null; status: string; date: Date; created_at: Date }[];
+    const withdrawals = withdrawalsRows as { id: number; wd_id: string; method: string; account_name: string; account_number: string; amount: number; locked_amount: number; status: string; date: Date; created_at: Date }[];
+    const notifications = notificationsRows as { id: number; title: string; message: string; type: string; is_read: boolean; created_at: Date }[];
+    const profileResult = profileResultRows as { kumulatif_sampah_kg: number }[];
 
     const totalEarnings = Number(earningsResult[0]?.total || 0);
     const lockedPending = Number(lockedResult[0]?.locked || 0);
@@ -363,7 +374,7 @@ export async function getLatestDashboardData() {
 }
 
 export async function getLatestAdminData() {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) {
     return { success: false, error: "Unauthorized" };
   }
@@ -372,16 +383,20 @@ export async function getLatestAdminData() {
     await ensureWithdrawalColumns();
     await ensureActivityLogsTable();
 
-    const [pendingTransactions, pendingWithdrawals, recentLogs] = await Promise.all([
-      sql<{ count: number }[]>`SELECT COUNT(*) as count FROM transactions WHERE status = 'pending'`,
-      sql<{ count: number }[]>`SELECT COUNT(*) as count FROM withdrawals WHERE status = 'Menunggu Verifikasi'`,
-      sql<{ id: number; action: string; target: string; detail: string; created_at: Date }[]>`
+    const [pendingTransactionsRows, pendingWithdrawalsRows, recentLogsRows] = await Promise.all([
+      sql`SELECT COUNT(*) as count FROM transactions WHERE status = 'pending'`,
+      sql`SELECT COUNT(*) as count FROM withdrawals WHERE status = 'Menunggu Verifikasi'`,
+      sql`
         SELECT id, action, target, detail, created_at
         FROM activity_logs
         ORDER BY created_at DESC
         LIMIT 20
       `
     ]);
+
+    const pendingTransactions = pendingTransactionsRows as { count: number }[];
+    const pendingWithdrawals = pendingWithdrawalsRows as { count: number }[];
+    const recentLogs = recentLogsRows as { id: number; action: string; target: string; detail: string; created_at: Date }[];
 
     const mappedLogs: ActivityLogEntry[] = recentLogs.map(log => ({
       id: log.id,
@@ -419,20 +434,24 @@ export async function getUserProfile() {
     const name = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username || "Unknown";
     const email = user.emailAddresses[0]?.emailAddress || "";
 
-    const [profileResult, balanceResult, lockedResult] = await Promise.all([
-      sql<{ phone_number: string; address: string; kumulatif_sampah_kg: number }[]>`
+    const [profileResultRows, balanceResultRows, lockedResultRows] = await Promise.all([
+      sql`
         SELECT phone_number, address, kumulatif_sampah_kg FROM user_profiles WHERE user_id = ${user.id}
       `,
-      sql<{ total: number }[]>`SELECT COALESCE(SUM(total_reward), 0) as total FROM transactions WHERE user_id = ${user.id} AND status = 'verified'`,
-      sql<{ locked: number }[]>`SELECT COALESCE(SUM(locked_amount), 0) as locked FROM withdrawals WHERE user_id = ${user.id} AND status = 'Menunggu Verifikasi'`
+      sql`SELECT COALESCE(SUM(total_reward), 0) as total FROM transactions WHERE user_id = ${user.id} AND status = 'verified'`,
+      sql`SELECT COALESCE(SUM(locked_amount), 0) as locked FROM withdrawals WHERE user_id = ${user.id} AND status = 'Menunggu Verifikasi'`
     ]);
+
+    const profileResult = profileResultRows as { phone_number: string; address: string; kumulatif_sampah_kg: number }[];
+    const balanceResult = balanceResultRows as { total: number }[];
+    const lockedResult = lockedResultRows as { locked: number }[];
 
     const totalEarnings = Number(balanceResult[0]?.total || 0);
     const lockedPending = Number(lockedResult[0]?.locked || 0);
 
     const profile = profileResult.length > 0 ? profileResult[0] : null;
-    const cumulativeWeight = profile?.kumulatif_sampah_kg !== null
-      ? Number(profile.kumulatif_sampah_kg)
+    const cumulativeWeight = profile?.kumulatif_sampah_kg !== undefined && profile?.kumulatif_sampah_kg !== null
+      ? Number(profile?.kumulatif_sampah_kg)
       : 0;
 
     const tierInfo = calculateTierInfo(cumulativeWeight);
@@ -466,13 +485,17 @@ export async function refreshUserBalance() {
   try {
     await ensureWithdrawalColumns();
 
-    const [earningsResult, lockedResult, profileResult] = await Promise.all([
-      sql<{ total: number }[]>`SELECT COALESCE(SUM(total_reward), 0) as total FROM transactions WHERE user_id = ${user.id} AND status = 'verified'`,
-      sql<{ locked: number }[]>`SELECT COALESCE(SUM(locked_amount), 0) as locked FROM withdrawals WHERE user_id = ${user.id} AND status = 'Menunggu Verifikasi'`,
-      sql<{ kumulatif_sampah_kg: number }[]>`
+    const [earningsResultRows, lockedResultRows, profileResultRows] = await Promise.all([
+      sql`SELECT COALESCE(SUM(total_reward), 0) as total FROM transactions WHERE user_id = ${user.id} AND status = 'verified'`,
+      sql`SELECT COALESCE(SUM(locked_amount), 0) as locked FROM withdrawals WHERE user_id = ${user.id} AND status = 'Menunggu Verifikasi'`,
+      sql`
         SELECT kumulatif_sampah_kg FROM user_profiles WHERE user_id = ${user.id}
       `
     ]);
+
+    const earningsResult = earningsResultRows as { total: number }[];
+    const lockedResult = lockedResultRows as { locked: number }[];
+    const profileResult = profileResultRows as { kumulatif_sampah_kg: number }[];
 
     const totalEarnings = Number(earningsResult[0]?.total || 0);
     const lockedPending = Number(lockedResult[0]?.locked || 0);

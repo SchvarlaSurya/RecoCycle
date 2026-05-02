@@ -41,8 +41,8 @@ interface UserProfileRow {
 
 async function getTierConfigs(): Promise<TierConfigRow[]> {
   try {
-    const rows = await sql<TierConfigRow[]>`SELECT * FROM tier_configs WHERE is_active = true ORDER BY min_weight_kg ASC`;
-    return rows;
+    const rows = await sql`SELECT * FROM tier_configs WHERE is_active = true ORDER BY min_weight_kg ASC`;
+    return rows as TierConfigRow[];
   } catch {
     return [];
   }
@@ -125,7 +125,8 @@ export async function getUserTier(): Promise<{ success: boolean; data?: TierInfo
   }
 
   try {
-    const profiles = await sql<UserProfileRow[]>`SELECT user_id, tier, kumulatif_sampah_kg FROM user_profiles WHERE user_id = ${user.id}`;
+    const profilesRows = await sql`SELECT user_id, tier, kumulatif_sampah_kg FROM user_profiles WHERE user_id = ${user.id}`;
+    const profiles = profilesRows as UserProfileRow[];
     
     let cumulativeWeight = 0;
     let currentTier: TierType = "Bronze";
@@ -188,7 +189,8 @@ export async function updateUserTier(
   userId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const profiles = await sql<UserProfileRow[]>`SELECT user_id, tier, kumulatif_sampah_kg FROM user_profiles WHERE user_id = ${userId}`;
+    const profilesRows = await sql`SELECT user_id, tier, kumulatif_sampah_kg FROM user_profiles WHERE user_id = ${userId}`;
+    const profiles = profilesRows as UserProfileRow[];
     
     if (profiles.length === 0) {
       return { success: false, error: "User profile not found" };

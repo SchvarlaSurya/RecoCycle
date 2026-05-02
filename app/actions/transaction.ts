@@ -130,11 +130,20 @@ export async function submitAIScanReward(trashType: string) {
   const date = new Date();
   
   try {
-    // 50 Eco-Token (Rp 50 value or dummy value for scanning)
-    // We set status to 'verified' so it immediately reflects in the dashboard balance.
+    // Catat transaksi dengan reward 0 agar tidak menambah saldo,
+    // tapi tercatat sebagai 'Scan AI' untuk dihitung sebagai EXP secara dinamis.
     await sql`
       INSERT INTO transactions (user_id, tx_id, type, weight, reward, date, status, price_per_kg)
-      VALUES (${user.id}, ${txId}, ${'Scan AI: ' + trashType}, 0, 50, ${date}, 'verified', 0)
+      VALUES (${user.id}, ${txId}, ${'Scan AI: ' + trashType}, 0, 0, ${date}, 'verified', 0)
+    `;
+
+    // Berikan 50 EXP secara langsung untuk update profile stats
+    await sql`
+      INSERT INTO user_profiles (user_id, total_xp, updated_at)
+      VALUES (${user.id}, 50, NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        total_xp = user_profiles.total_xp + 50,
+        updated_at = NOW()
     `;
 
     revalidatePath("/dashboard");
@@ -148,8 +157,10 @@ export async function submitAIScanReward(trashType: string) {
 
 export async function getGlobalWasteStats() {
   try {
-    let distributionRaw: { name: string; value: number | string }[] = [];
-    let weeklyRaw: { dt: string | Date; total: number | string }[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let distributionRaw: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let weeklyRaw: any[] = [];
 
     try {
       // Prioritaskan skema baru: hasil verifikasi admin memakai actual_weight + waste_type
@@ -157,8 +168,8 @@ export async function getGlobalWasteStats() {
         SELECT
           waste_type as name,
           SUM(COALESCE(actual_weight, 0)) as value
-        FROM transactions 
-        WHERE (status = 'verified' OR status = 'Selesai') 
+        FROM transactions
+        WHERE (status = 'verified' OR status = 'Selesai')
           AND date >= date_trunc('month', NOW())
           AND COALESCE(actual_weight, 0) > 0
         GROUP BY waste_type
@@ -169,7 +180,7 @@ export async function getGlobalWasteStats() {
         SELECT
           DATE(date) as dt,
           SUM(COALESCE(actual_weight, 0)) as total
-        FROM transactions 
+        FROM transactions
         WHERE (status = 'verified' OR status = 'Selesai')
           AND date >= date_trunc('week', NOW())
           AND COALESCE(actual_weight, 0) > 0
@@ -179,17 +190,17 @@ export async function getGlobalWasteStats() {
     } catch {
       // Fallback ke skema lama
       distributionRaw = await sql`
-        SELECT type as name, SUM(weight) as value 
-        FROM transactions 
-        WHERE (status = 'verified' OR status = 'Selesai') 
+        SELECT type as name, SUM(weight) as value
+        FROM transactions
+        WHERE (status = 'verified' OR status = 'Selesai')
           AND date >= date_trunc('month', NOW())
-        GROUP BY type 
+        GROUP BY type
         ORDER BY value DESC
       `;
 
       weeklyRaw = await sql`
-        SELECT DATE(date) as dt, SUM(weight) as total 
-        FROM transactions 
+        SELECT DATE(date) as dt, SUM(weight) as total
+        FROM transactions
         WHERE (status = 'verified' OR status = 'Selesai')
           AND date >= date_trunc('week', NOW())
         GROUP BY DATE(date)
@@ -246,17 +257,28 @@ export async function getGlobalWasteStats() {
   }
 }
 
-export async function getWasteCatalog() {
+export async function getWasteCatalog(): Promise<{
+  success: boolean;
+  data?: {
+    id: string;
+    name: string;
+    category: string;
+    pricePerKg: number;
+  }[];
+  error?: string;
+}> {
   try {
     const catalog = await sql`
       SELECT id, name, category, price_per_kg as "pricePerKg"
       FROM waste_catalog
       ORDER BY name ASC
     `;
-    return { 
-      success: true, 
+    return {
+      success: true,
       data: catalog.map(item => ({
-        ...item,
+        id: String(item.id),
+        name: String(item.name),
+        category: String(item.category),
         pricePerKg: Number(item.pricePerKg)
       }))
     };

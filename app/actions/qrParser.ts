@@ -1,4 +1,3 @@
-"use server";
 
 export interface QRParseResult {
   success: boolean;

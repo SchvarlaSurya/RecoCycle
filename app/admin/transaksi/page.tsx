@@ -124,8 +124,8 @@ export default function TransaksiPage() {
     setMode(tx.status === "pending" ? "verify" : null);
   };
 
-  const statusBadge = (status: TransactionStatus | string) => {
-    const rawStatus = status as TransactionStatus;
+  const statusBadge = (status: TransactionStatus | string | null) => {
+    const rawStatus = (status || "pending") as TransactionStatus;
     const styles: Record<TransactionStatus, string> = {
       pending: "bg-amber-100 text-amber-800",
       verified: "bg-emerald-100 text-emerald-800",
