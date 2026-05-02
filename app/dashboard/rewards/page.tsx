@@ -6,8 +6,10 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 
+type RewardStatusItem = NonNullable<Awaited<ReturnType<typeof getRewardsStatus>>["rewards"]>[number];
+
 export default function RewardsPage() {
-  const [rewards, setRewards] = useState<any[]>([]);
+  const [rewards, setRewards] = useState<RewardStatusItem[]>([]);
   const [userXp, setUserXp] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isClaiming, setIsClaiming] = useState<string | null>(null);
@@ -23,7 +25,11 @@ export default function RewardsPage() {
   }
 
   useEffect(() => {
-    loadData();
+    const timeoutId = window.setTimeout(() => {
+      void loadData();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   const handleClaim = async (rewardId: string) => {
@@ -44,7 +50,7 @@ export default function RewardsPage() {
       } else {
         toast.error(res.error || "Gagal mengklaim hadiah.");
       }
-    } catch (error) {
+    } catch {
       toast.error("Terjadi kesalahan.");
     } finally {
       setIsClaiming(null);
@@ -72,15 +78,15 @@ export default function RewardsPage() {
             Edisi Bulan Ini
           </span>
         </div>
-        <p className="mt-2 text-stone-600">
+        <p className="mt-2 text-stone-700">
           Kumpulkan EXP dengan rutin menyetor sampah bulan ini. Progress dan ketersediaan hadiah akan secara otomatis di-reset pada tanggal 1 setiap bulannya!
         </p>
 
         {/* Progress Bar Area */}
-        <div className="mt-6 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+        <div className="glass-panel mt-6 rounded-3xl p-6">
           <div className="flex items-end justify-between font-medium">
-            <span className="text-sm text-stone-500 uppercase tracking-widest font-semibold">EXP Bulan Ini</span>
-            <span className="text-3xl font-black text-emerald-700">{userXp.toLocaleString("id-ID")} <span className="text-base text-stone-400 font-medium tracking-normal">XP</span></span>
+            <span className="text-sm text-stone-700 uppercase tracking-widest font-semibold">EXP Bulan Ini</span>
+            <span className="text-3xl font-black text-emerald-700">{userXp.toLocaleString("id-ID")} <span className="text-base font-medium tracking-normal text-stone-600">XP</span></span>
           </div>
           <div className="mt-4 h-4 w-full overflow-hidden rounded-full bg-stone-100">
             <div 
@@ -93,7 +99,6 @@ export default function RewardsPage() {
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {rewards.map((reward) => {
-          const isEligible = userXp >= reward.requiredXp;
           const isClaimed = reward.isClaimed;
           const canClaim = reward.canClaim;
           
@@ -105,7 +110,7 @@ export default function RewardsPage() {
                   ? "border-emerald-200 bg-emerald-50 opacity-70 grayscale-[20%]" 
                   : canClaim
                     ? "border-emerald-300 bg-white shadow-[0_8px_30px_rgb(16,185,129,0.12)] scale-[1.02]"
-                    : "border-stone-200 bg-stone-50"
+                    : "glass-panel-soft"
               }`}
             >
               <div>
@@ -115,7 +120,7 @@ export default function RewardsPage() {
                   }`}>
                     {reward.icon}
                   </div>
-                  <div className="rounded-full bg-stone-200/60 px-3 py-1 text-xs font-bold text-stone-600 tracking-wider">
+                  <div className="rounded-full bg-stone-200/70 px-3 py-1 text-xs font-bold tracking-wider text-stone-700">
                     {reward.requiredXp} XP
                   </div>
                 </div>
@@ -123,14 +128,14 @@ export default function RewardsPage() {
                 <h3 className={`text-lg font-bold ${canClaim || isClaimed ? "text-stone-900" : "text-stone-500"}`}>
                   {reward.title}
                 </h3>
-                <p className={`mt-2 text-sm leading-relaxed ${canClaim || isClaimed ? "text-stone-600" : "text-stone-400"}`}>
+                <p className={`mt-2 text-sm leading-relaxed ${canClaim || isClaimed ? "text-stone-700" : "text-stone-600"}`}>
                   {reward.description}
                 </p>
               </div>
 
               <div className="mt-8">
                 {isClaimed ? (
-                  <button disabled className="w-full rounded-xl bg-stone-200 py-3 text-sm font-semibold text-stone-500 flex justify-center items-center gap-2">
+                  <button disabled className="flex w-full items-center justify-center gap-2 rounded-xl bg-stone-200 py-3 text-sm font-semibold text-stone-700">
                     <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
                     </svg>
@@ -147,7 +152,7 @@ export default function RewardsPage() {
                     ) : "Klaim Sekarang"}
                   </button>
                 ) : (
-                  <div className="w-full rounded-xl bg-stone-200/50 py-3 text-center text-sm font-semibold text-stone-400">
+                  <div className="w-full rounded-xl bg-stone-200/60 py-3 text-center text-sm font-semibold text-stone-700">
                     Butuh {reward.requiredXp - userXp} XP lagi
                   </div>
                 )}

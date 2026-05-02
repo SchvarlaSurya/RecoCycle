@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useState } from "react";
-import { useWasteStore, useUserTier } from "@/store/useWasteStore";
+import { useWasteStore, useUserTier, type Transaction, type Withdrawal } from "@/store/useWasteStore";
 import { getUserDashboardData, getGlobalWasteStats } from "@/app/actions/transaction";
 import {
   BarChart,
@@ -14,71 +14,72 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend
 } from "recharts";
 import TrashScanner from "@/components/TrashScanner";
 
 const COLORS = ["#047857", "#10b981", "#34d399", "#6ee7b7", "#a7f3d0", "#065f46"];
 
-export default function DashboardPage() {
-  const { balance, transactions, withdrawals, isHydrated, initStore } = useWasteStore();
-  const [loading, setLoading] = useState(!isHydrated);
+function GlassCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`glass-panel rounded-[30px] ${className}`}>
+      {children}
+    </div>
+  );
+}
 
-  // Global Chart States
-  const [globalDist, setGlobalDist] = useState<{name: string, value: number}[]>([]);
-  const [globalWeekly, setGlobalWeekly] = useState<{date: string, weight: number}[]>([]);
-  
-  // Timer States
+export default function DashboardPage() {
+  const { balance, transactions, isHydrated, initStore } = useWasteStore();
+  const [loading, setLoading] = useState(!isHydrated);
+  const [globalDist, setGlobalDist] = useState<{ name: string; value: number }[]>([]);
+  const [globalWeekly, setGlobalWeekly] = useState<{ date: string; weight: number }[]>([]);
   const [timeToWeekEnd, setTimeToWeekEnd] = useState<string>("");
   const [timeToMonthEnd, setTimeToMonthEnd] = useState<string>("");
 
   useEffect(() => {
-    // Always fetch fresh user data to see balance updates after admin verification
-    setLoading(true);
-    Promise.all([
-      getUserDashboardData(),
-      getGlobalWasteStats()
-    ]).then(([userRes, globalRes]) => {
-      if (userRes.success) {
-        initStore(userRes.balance || 0, userRes.transactions as any, userRes.withdrawals as any);
-      }
-      if (globalRes.success && globalRes.distributionData && globalRes.weeklyData) {
-        setGlobalDist(globalRes.distributionData);
-        setGlobalWeekly(globalRes.weeklyData);
-      }
-      setLoading(false);
-    }).catch(err => {
-      console.error("Dashboard fetch error:", err);
-      setLoading(false);
-    });
+    Promise.all([getUserDashboardData(), getGlobalWasteStats()])
+      .then(([userRes, globalRes]) => {
+        if (userRes.success) {
+          initStore(
+            userRes.balance || 0,
+            (userRes.transactions ?? []) as Transaction[],
+            (userRes.withdrawals ?? []) as Withdrawal[]
+          );
+        }
+        if (globalRes.success && globalRes.distributionData && globalRes.weeklyData) {
+          setGlobalDist(globalRes.distributionData);
+          setGlobalWeekly(globalRes.weeklyData);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Dashboard fetch error:", err);
+        setLoading(false);
+      });
   }, [initStore]);
 
-  // Timer Effect
   useEffect(() => {
     const updateCountdown = () => {
       const now = new Date();
-      
-      // End of this week (Sunday 23:59:59)
+
       const day = now.getDay();
       const diffToSunday = day === 0 ? 0 : 7 - day;
       const endOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToSunday, 23, 59, 59, 999);
       const weekDiff = Math.max(0, endOfWeek.getTime() - now.getTime());
-      
+
       const wDays = Math.floor(weekDiff / (1000 * 60 * 60 * 24));
       const wHours = Math.floor((weekDiff / (1000 * 60 * 60)) % 24);
       const wMins = Math.floor((weekDiff / 1000 / 60) % 60);
       const wSecs = Math.floor((weekDiff / 1000) % 60);
-      setTimeToWeekEnd(`${wDays} Hari ${wHours.toString().padStart(2, '0')}:${wMins.toString().padStart(2, '0')}:${wSecs.toString().padStart(2, '0')}`);
+      setTimeToWeekEnd(`${wDays} Hari ${wHours.toString().padStart(2, "0")}:${wMins.toString().padStart(2, "0")}:${wSecs.toString().padStart(2, "0")}`);
 
-      // End of this month (for Donut Chart)
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       const monthDiff = Math.max(0, endOfMonth.getTime() - now.getTime());
-      
+
       const mDays = Math.floor(monthDiff / (1000 * 60 * 60 * 24));
       const mHours = Math.floor((monthDiff / (1000 * 60 * 60)) % 24);
       const mMins = Math.floor((monthDiff / 1000 / 60) % 60);
       const mSecs = Math.floor((monthDiff / 1000) % 60);
-      setTimeToMonthEnd(`${mDays} Hari ${mHours.toString().padStart(2, '0')}:${mMins.toString().padStart(2, '0')}:${mSecs.toString().padStart(2, '0')}`);
+      setTimeToMonthEnd(`${mDays} Hari ${mHours.toString().padStart(2, "0")}:${mMins.toString().padStart(2, "0")}:${mSecs.toString().padStart(2, "0")}`);
     };
 
     updateCountdown();
@@ -86,94 +87,167 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Metrics Calculation
   const totalSampah = useMemo(() => transactions.reduce((acc, tx) => acc + tx.weight, 0), [transactions]);
   const totalNilai = useMemo(() => transactions.reduce((acc, tx) => acc + tx.reward, 0), [transactions]);
   const totalTransaksi = transactions.length;
 
-  // Hitung penarikan kotor sederhana berdasarkan delta saldo
-  const initialDummyTotal = 98600; // sum of initial 4 dummy txs
-  const baseBalance = 875000; // sum of initial dummy balance
+  const initialDummyTotal = 98600;
+  const baseBalance = 875000;
   const accumulatedRewards = totalNilai - initialDummyTotal;
   const theoreticalBalance = baseBalance + accumulatedRewards;
-  const totalDitarik = theoreticalBalance > balance ? (theoreticalBalance - balance) : 0;
+  const totalDitarik = theoreticalBalance > balance ? theoreticalBalance - balance : 0;
 
-  // (Chart calculations removed since we pull from global API)
-
-  // Recent 5 Transactions
   const recentTransactions = transactions.slice(0, 5);
-  const { tier, bonusPercentage, nextTierWeight, progressToNext, tierColor } = useUserTier();
+  const { tier, totalWeight, bonusPercentage, nextTierWeight, progressToNext } = useUserTier();
+  const tierStyles = {
+    Bronze: {
+      shell: "from-amber-700 via-amber-800 to-stone-950",
+      badge: "bg-white/12 text-amber-100 ring-1 ring-white/15",
+      label: "text-amber-100/75",
+      subtle: "text-amber-50/80",
+      progressTrack: "bg-white/12",
+      progressBar: "from-amber-100 via-white to-amber-200",
+      accent: "text-white",
+      button: "border-white/20 bg-white/10 text-white hover:bg-white/16",
+      icon: "text-amber-100/10",
+    },
+    Silver: {
+      shell: "from-slate-500 via-slate-600 to-slate-800",
+      badge: "bg-white/12 text-slate-100 ring-1 ring-white/15",
+      label: "text-slate-200/80",
+      subtle: "text-slate-100/85",
+      progressTrack: "bg-white/14",
+      progressBar: "from-white via-slate-100 to-slate-200",
+      accent: "text-white",
+      button: "border-white/20 bg-white/10 text-white hover:bg-white/16",
+      icon: "text-white/10",
+    },
+    Gold: {
+      shell: "from-yellow-500 via-amber-500 to-orange-700",
+      badge: "bg-white/14 text-yellow-50 ring-1 ring-white/15",
+      label: "text-yellow-50/80",
+      subtle: "text-yellow-50/90",
+      progressTrack: "bg-white/16",
+      progressBar: "from-white via-yellow-100 to-amber-100",
+      accent: "text-white",
+      button: "border-white/20 bg-white/10 text-white hover:bg-white/16",
+      icon: "text-white/10",
+    },
+    Platinum: {
+      shell: "from-cyan-500 via-sky-600 to-indigo-800",
+      badge: "bg-white/14 text-cyan-50 ring-1 ring-white/15",
+      label: "text-cyan-50/80",
+      subtle: "text-cyan-50/90",
+      progressTrack: "bg-white/16",
+      progressBar: "from-white via-cyan-100 to-sky-100",
+      accent: "text-white",
+      button: "border-white/20 bg-white/10 text-white hover:bg-white/16",
+      icon: "text-white/10",
+    },
+  } as const;
+  const cardStyle = tierStyles[tier as keyof typeof tierStyles] ?? tierStyles.Bronze;
+  const progressLabel = nextTierWeight > 0 ? `${Math.min(totalWeight, nextTierWeight)}/${nextTierWeight} kg` : `${totalWeight} kg`;
+  const nextTierName = tier === "Bronze" ? "Silver" : tier === "Silver" ? "Gold" : tier === "Gold" ? "Platinum" : "Platinum";
 
   return (
     <div className="mx-auto w-full space-y-6 pb-12">
-      <div className="mb-2 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="mb-2 grid gap-4 xl:grid-cols-[minmax(0,1fr)_25rem] xl:items-end">
         <div>
           <h1 className="text-2xl font-semibold text-stone-900">Ringkasan Dasbor</h1>
-          <p className="text-sm text-stone-600 mt-1">Pantau pergerakan statistik daur ulang secara *real-time*.</p>
+          <p className="mt-1 text-sm text-stone-700">Pantau pergerakan statistik daur ulang secara real-time.</p>
         </div>
-        
-        {/* Tier Badge */}
-        <div className="flex flex-col items-start sm:items-end bg-white border border-stone-200 p-3 rounded-2xl shadow-sm">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Status Member</span>
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ring-1 ring-inset uppercase tracking-wide ${tierColor}`}>
-              {tier}
-            </span>
+
+        <div className={`relative overflow-hidden rounded-[30px] bg-gradient-to-br ${cardStyle.shell} p-6 text-white shadow-[0_26px_70px_rgba(15,23,42,0.18)]`}>
+          <div className={`pointer-events-none absolute -right-7 top-3 ${cardStyle.icon}`}>
+            <svg width="150" height="150" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
           </div>
-          {nextTierWeight > 0 ? (
-            <div className="w-48">
-              <div className="flex justify-between text-[10px] text-stone-500 mb-1 font-medium">
-                <span>Dipercepat +{bonusPercentage}% Harga</span>
-                <span>{nextTierWeight}kg untuk Next Tier</span>
+
+          <div className="relative z-10">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${cardStyle.label}`}>Status Member</p>
+                <h2 className="mt-2 text-4xl font-semibold italic tracking-tight text-white">{tier} Tier</h2>
               </div>
-              <div className="w-full bg-stone-100 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${progressToNext}%` }}></div>
-              </div>
+              <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] ${cardStyle.badge}`}>
+                +{bonusPercentage}% bonus
+              </span>
             </div>
-          ) : (
-            <div className="text-xs font-medium text-emerald-600">Level Tertinggi +10% Harga</div>
-          )}
+
+            {nextTierWeight > 0 ? (
+              <div className="mt-7">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className={`text-xs font-medium ${cardStyle.subtle}`}>{progressLabel}</span>
+                  <span className={`text-xs font-medium ${cardStyle.subtle}`}>Menuju {nextTierWeight} kg</span>
+                </div>
+                <div className={`h-2.5 w-full overflow-hidden rounded-full ${cardStyle.progressTrack}`}>
+                  <div
+                    className={`h-full rounded-full bg-gradient-to-r ${cardStyle.progressBar} shadow-[0_0_14px_rgba(255,255,255,0.65)] transition-all duration-500`}
+                    style={{ width: `${progressToNext}%` }}
+                  />
+                </div>
+                <div className="mt-4 flex items-end justify-between gap-4">
+                  <p className={`max-w-[16rem] text-sm leading-6 ${cardStyle.subtle}`}>
+                    Upgrade ke <span className={`font-semibold ${cardStyle.accent}`}>{nextTierName}</span> untuk bonus harga setoran yang lebih tinggi.
+                  </p>
+                  <div className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition-colors ${cardStyle.button}`}>
+                    Progress
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-7 flex items-end justify-between gap-4">
+                <p className={`max-w-[17rem] text-sm leading-6 ${cardStyle.subtle}`}>
+                  Kamu sudah berada di level tertinggi. Semua setoran berikutnya mendapat bonus harga tier maksimum.
+                </p>
+                <div className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] ${cardStyle.button}`}>
+                  Tier Maksimal
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* 4 Top Metric Cards */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <article className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-emerald-200">
-          <p className="text-sm font-medium text-stone-500">Total Sampah Dikumpulkan</p>
-          <p className="mt-2 text-3xl font-bold text-stone-900">{totalSampah} <span className="text-lg text-stone-500">kg</span></p>
-        </article>
-        <article className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-emerald-200">
-          <p className="text-sm font-medium text-stone-500">Total Transaksi</p>
-          <p className="mt-2 text-3xl font-bold text-stone-900">{totalTransaksi} <span className="text-lg text-stone-500">kali</span></p>
-        </article>
-        <article className="rounded-3xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-emerald-300">
+        <GlassCard className="p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.10)]">
+          <p className="text-sm font-medium text-stone-700">Total Sampah Dikumpulkan</p>
+          <p className="mt-2 text-3xl font-bold text-stone-900">
+            {totalSampah} <span className="text-lg text-stone-600">kg</span>
+          </p>
+        </GlassCard>
+        <GlassCard className="p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.10)]">
+          <p className="text-sm font-medium text-stone-700">Total Transaksi</p>
+          <p className="mt-2 text-3xl font-bold text-stone-900">
+            {totalTransaksi} <span className="text-lg text-stone-600">kali</span>
+          </p>
+        </GlassCard>
+        <GlassCard className="bg-gradient-to-br from-emerald-50/90 to-white/70 p-5 shadow-[0_16px_40px_rgba(16,185,129,0.10)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(16,185,129,0.12)]">
           <p className="text-sm font-medium text-emerald-800">Saldo Tersedia</p>
           <p className="mt-2 text-3xl font-bold text-emerald-700">Rp {balance.toLocaleString("id-ID")}</p>
-        </article>
-        <article className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-emerald-200">
-          <p className="text-sm font-medium text-stone-500">Total Poin / Saldo Ditukar</p>
+        </GlassCard>
+        <GlassCard className="p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.10)]">
+          <p className="text-sm font-medium text-stone-700">Total Poin / Saldo Ditukar</p>
           <p className="mt-2 text-3xl font-bold text-stone-900">Rp {totalDitarik.toLocaleString("id-ID")}</p>
-        </article>
+        </GlassCard>
       </section>
 
-      {/* AI Scanner Section */}
       <section className="my-6">
         <TrashScanner />
       </section>
 
-      {/* Charts Section */}
       <section className="grid gap-6 lg:grid-cols-2">
-        {/* Weekly Trend Bar Chart */}
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
+        <GlassCard className="p-5 sm:p-6">
+          <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-stone-900">Tren Setoran Global Mingguan (kg)</h2>
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
               </span>
-              <div className="text-xs font-semibold text-stone-600 bg-stone-100 px-2 py-1 rounded-md border border-stone-200">
-                Mingguan Reset: <span className="text-emerald-700 font-mono tracking-tight ml-1">{timeToWeekEnd}</span>
+              <div className="rounded-md border border-stone-200 bg-stone-100 px-2 py-1 text-xs font-semibold text-stone-600">
+                Mingguan Reset: <span className="ml-1 font-mono tracking-tight text-emerald-700">{timeToWeekEnd}</span>
               </div>
             </div>
           </div>
@@ -181,66 +255,51 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={globalWeekly} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 13, fill: '#78716c' }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 13, fill: '#78716c' }} />
-                <RechartsTooltip 
-                  cursor={{ fill: '#f5f5f4' }}
-                  contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
-                />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 13, fill: "#78716c" }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 13, fill: "#78716c" }} />
+                <RechartsTooltip cursor={{ fill: "#f5f5f4" }} contentStyle={{ borderRadius: "1rem", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }} />
                 <Bar dataKey="weight" name="Berat (kg)" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={50} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </GlassCard>
 
-        {/* Distribution Pie Chart */}
-        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6 flex flex-col">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+        <GlassCard className="flex flex-col p-5 sm:p-6">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-stone-900">Distribusi Global Bulanan (Volume)</h2>
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
               </span>
-              <div className="text-xs font-semibold text-stone-600 bg-stone-100 px-2 py-1 rounded-md border border-stone-200">
-                Bulanan Reset: <span className="text-amber-700 font-mono tracking-tight ml-1">{timeToMonthEnd}</span>
+              <div className="rounded-md border border-stone-200 bg-stone-100 px-2 py-1 text-xs font-semibold text-stone-600">
+                Bulanan Reset: <span className="ml-1 font-mono tracking-tight text-amber-700">{timeToMonthEnd}</span>
               </div>
             </div>
           </div>
-          <div className="flex-1 flex flex-col md:flex-row w-full min-h-[280px] md:items-center gap-6">
+          <div className="flex min-h-[280px] w-full flex-1 flex-col gap-6 md:flex-row md:items-center">
             {globalDist.length > 0 ? (
               <>
                 <div className="h-[240px] w-full md:w-[55%]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie
-                        data={globalDist}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={70}
-                        outerRadius={100}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
+                      <Pie data={globalDist} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={3} dataKey="value">
                         {globalDist.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          <Cell key={`cell-${entry.name}-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <RechartsTooltip 
-                        formatter={(value) => [`${value} kg`, 'Volume Global']}
-                        contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
-                      />
+                      <RechartsTooltip formatter={(value) => [`${value} kg`, "Volume Global"]} contentStyle={{ borderRadius: "1rem", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="w-full md:w-[45%] flex flex-col gap-3 max-h-[240px] overflow-y-auto pr-2">
+                <div className="flex max-h-[240px] w-full flex-col gap-3 overflow-y-auto pr-2 md:w-[45%]">
                   {globalDist.map((entry, index) => (
-                    <div key={entry.name} className="flex items-center justify-between text-sm py-1 border-b border-stone-50 last:border-0 hover:bg-stone-50 transition-colors rounded-lg px-2">
+                    <div key={entry.name} className="flex items-center justify-between rounded-lg border-b border-stone-50 px-2 py-1 text-sm transition-colors last:border-0 hover:bg-stone-50">
                       <div className="flex items-center gap-3 overflow-hidden pr-2">
-                        <div className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                        <span className="text-stone-700 font-medium truncate" title={entry.name}>{entry.name}</span>
+                        <div className="h-3 w-3 flex-shrink-0 rounded-full shadow-sm" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                        <span className="truncate font-medium text-stone-700" title={entry.name}>{entry.name}</span>
                       </div>
-                      <span className="font-semibold text-stone-900 flex-shrink-0 ml-2">{entry.value} kg</span>
+                      <span className="ml-2 flex-shrink-0 font-semibold text-stone-900">{entry.value} kg</span>
                     </div>
                   ))}
                 </div>
@@ -249,44 +308,45 @@ export default function DashboardPage() {
               <div className="flex h-[240px] w-full items-center justify-center text-stone-400">Belum ada data setoran.</div>
             )}
           </div>
-        </div>
+        </GlassCard>
       </section>
 
-      {/* Recent Transactions List */}
-      <section className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
-        <div className="border-b border-stone-200 px-5 py-4 sm:px-6 flex items-center justify-between">
+      <GlassCard className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-white/55 px-5 py-4 sm:px-6">
           <div>
             <h2 className="text-lg font-semibold text-stone-900">Setoran Terbaru</h2>
             <p className="text-sm text-stone-600">Riwayat transaksi terakhir yang berhasil masuk.</p>
           </div>
         </div>
-        <div className="divide-y divide-stone-200">
+        <div className="divide-y divide-white/55">
           {recentTransactions.length > 0 ? (
             recentTransactions.map((item) => (
-              <div key={item.id} className="group flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 hover:bg-emerald-50/50 transition-colors cursor-default">
+              <div key={item.id} className="group flex cursor-default flex-col gap-2 px-5 py-4 transition-colors hover:bg-emerald-50/45 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                 <div>
-                  <p className="font-semibold text-stone-900 group-hover:text-emerald-800 transition-colors">{item.type}</p>
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <span className="text-sm text-stone-600">{item.date}</span>
-                    <span className="text-stone-300">•</span>
+                  <p className="font-semibold text-stone-900 transition-colors group-hover:text-emerald-800">{item.type}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className="text-sm text-stone-700">{item.date}</span>
+                    <span className="text-stone-300">&bull;</span>
                     <span className="text-sm font-medium text-stone-700">{item.weight} kg</span>
-                    <span className="text-stone-300">•</span>
-                    <span className="text-xs font-medium text-stone-500 uppercase tracking-wider">{item.id}</span>
+                    <span className="text-stone-300">&bull;</span>
+                    <span className="text-xs font-medium uppercase tracking-wider text-stone-600">{item.id}</span>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-1 mt-2 sm:mt-0">
+                <div className="mt-2 flex flex-col items-end gap-1 sm:mt-0">
                   <p className="font-bold text-emerald-700">+ Rp {item.reward.toLocaleString("id-ID")}</p>
-                  <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 uppercase tracking-wide">
+                  <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
                     {item.status}
                   </span>
                 </div>
               </div>
             ))
           ) : (
-            <div className="px-6 py-8 text-center text-stone-500">Belum ada setoran masuk.</div>
+            <div className="px-6 py-8 text-center text-stone-600">Belum ada setoran masuk.</div>
           )}
         </div>
-      </section>
+      </GlassCard>
+
+      {loading && <div className="hidden" aria-hidden="true" />}
     </div>
   );
 }

@@ -36,7 +36,7 @@ export default function PencapaianPage() {
     <div className="max-w-5xl mx-auto py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-stone-900">Koleksi Lencana</h1>
-        <p className="mt-2 text-stone-600">
+        <p className="mt-2 text-stone-700">
           Selesaikan misi kelola sampah untuk mengumpulkan semua lencana pencapaian.
           Anda telah membuka <span className="font-semibold text-emerald-700">{unlockedCount} dari {badges.length}</span> lencana.
         </p>
@@ -55,7 +55,7 @@ export default function PencapaianPage() {
               className={`relative overflow-hidden rounded-3xl border p-6 transition-all ${
                 isUnlocked 
                   ? "border-emerald-200 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)]" 
-                  : "border-stone-200 bg-stone-50"
+                  : "border-white/65 bg-white/72"
               }`}
             >
               <div 
@@ -69,7 +69,7 @@ export default function PencapaianPage() {
               <h3 className={`text-lg font-bold ${isUnlocked ? "text-stone-900" : "text-stone-500"}`}>
                 {badge.name}
               </h3>
-              <p className={`mt-2 text-sm leading-relaxed ${isUnlocked ? "text-stone-600" : "text-stone-400"}`}>
+              <p className={`mt-2 text-sm leading-relaxed ${isUnlocked ? "text-stone-700" : "text-stone-600"}`}>
                 {badge.description}
               </p>
 
@@ -82,7 +82,7 @@ export default function PencapaianPage() {
                     Terbuka
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-200 px-2.5 py-1 text-xs font-semibold text-stone-600">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-200 px-2.5 py-1 text-xs font-semibold text-stone-700">
                     <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
                     </svg>

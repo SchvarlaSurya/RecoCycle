@@ -14,7 +14,7 @@ export default function LoginPage() {
             Login akun
           </p>
           <h1 className="mt-4 text-4xl font-semibold leading-tight text-stone-900">
-            Masuk untuk akses dashboard WasteBank.
+            Masuk untuk akses dashboard RecoCycle.
           </h1>
           <p className="mt-4 max-w-xl text-sm leading-7 text-stone-600 sm:text-base">
             Anda bisa cek riwayat pickup, nilai reward, dan status transaksi dengan satu akun Clerk yang aman.

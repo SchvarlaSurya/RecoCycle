@@ -1,42 +1,32 @@
-import type { Metadata } from "next";
+import { Inter, Playfair_Display } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Montserrat, Plus_Jakarta_Sans } from "next/font/google";
-import { Toaster } from "sonner";
 import "./globals.css";
 
-const sans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-sans",
+const inter = Inter({ 
+  subsets: ["latin"], 
+  variable: "--font-inter" 
 });
 
-const display = Montserrat({
-  subsets: ["latin"],
-  variable: "--font-display",
+const playfair = Playfair_Display({ 
+  subsets: ["latin"], 
+  style: ['italic', 'normal'],
+  variable: "--font-playfair" 
 });
 
-export const metadata: Metadata = {
-  title: "WasteBank - Pickup Sampah Terpilah",
-  description: "Setor sampah terpilah dari rumah dan dapatkan reward secara transparan.",
+export const metadata = {
+  title: "RecoCycle",
+  description: "RecoCycle adalah platform pengelolaan sampah terpilah dengan pickup terjadwal, reward transparan, dan dashboard dampak.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="id" className={`${sans.variable} ${display.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
-        <ClerkProvider>
-          {children}
-          <Toaster 
-            position="bottom-center"
-            toastOptions={{
-              className: 'rounded-xl border border-stone-200 px-4 py-3 shadow-lg font-sans bg-white text-stone-900',
-              descriptionClassName: 'text-stone-500 text-sm'
-            }}
-          />
-        </ClerkProvider>
+    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
+      <body>
+        <ClerkProvider>{children}</ClerkProvider>
       </body>
     </html>
   );

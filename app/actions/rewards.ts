@@ -13,6 +13,32 @@ export interface RewardCatalogItem {
   icon: string;
 }
 
+type RewardClaimRow = {
+  reward_id: string;
+};
+
+async function getMonthlyXp(userId: string) {
+  const rows = await sql`
+    SELECT
+      SUM(
+        CASE
+          WHEN type LIKE 'Scan AI:%' THEN 100
+          ELSE COALESCE(weight, 0) * 50
+        END
+      ) as total_xp
+    FROM transactions
+    WHERE user_id = ${userId}
+      AND status IN ('verified', 'Selesai')
+      AND date >= DATE_TRUNC('month', CURRENT_DATE)
+  `;
+
+  return rows.length > 0 && rows[0].total_xp ? Number(rows[0].total_xp) : 0;
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui.";
+}
+
 const REWARDS_CATALOG: RewardCatalogItem[] = [
   {
     id: "level_1_reward",
@@ -26,7 +52,7 @@ const REWARDS_CATALOG: RewardCatalogItem[] = [
   {
     id: "level_2_reward",
     title: "Stiker Eksklusif",
-    description: "Stiker Hologram WasteBank",
+    description: "Stiker Hologram RecoCycle",
     type: "merch",
     requiredXp: 400,
     icon: "✨"
@@ -56,15 +82,8 @@ export async function getRewardsStatus() {
   if (!userId) return { success: false, error: "Unauthorized" };
 
   try {
-    // 1. Dapatkan EXP User bulan ini (Akumulasi weight * 50)
-    const profileRes = await sql`
-      SELECT SUM(weight * 50) as total_xp 
-      FROM transactions 
-      WHERE user_id = ${userId} 
-        AND status = 'Selesai'
-        AND date >= DATE_TRUNC('month', CURRENT_DATE)
-    `;
-    const userXp = profileRes.length > 0 && profileRes[0].total_xp ? Number(profileRes[0].total_xp) : 0;
+    // 1. Dapatkan EXP user bulan ini, termasuk hasil scan AI
+    const userXp = await getMonthlyXp(userId);
 
     // 2. Dapatkan daftar hadiah yang sudah diklaim di bulan ini
     const claimsRes = await sql`
@@ -73,7 +92,7 @@ export async function getRewardsStatus() {
       WHERE user_id = ${userId}
         AND claimed_at >= DATE_TRUNC('month', CURRENT_DATE)
     `;
-    const claimedSet = new Set(claimsRes.map((r: any) => r.reward_id));
+    const claimedSet = new Set((claimsRes as RewardClaimRow[]).map((claim) => claim.reward_id));
 
     // 3. Gabungkan status untuk UI
     const catalogWithStatus = REWARDS_CATALOG.map(reward => {
@@ -95,9 +114,9 @@ export async function getRewardsStatus() {
       rewards: catalogWithStatus,
       claimableCount
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Gagal mendapatkan status rewards:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: getErrorMessage(error) };
   }
 }
 
@@ -111,15 +130,8 @@ export async function claimReward(rewardId: string) {
     const reward = REWARDS_CATALOG.find(r => r.id === rewardId);
     if (!reward) throw new Error("Reward tidak ditemukan.");
 
-    // Cek EXP Bulan Ini
-    const profileRes = await sql`
-      SELECT SUM(weight * 50) as total_xp 
-      FROM transactions 
-      WHERE user_id = ${userId} 
-        AND status = 'Selesai'
-        AND date >= DATE_TRUNC('month', CURRENT_DATE)
-    `;
-    const userXp = profileRes.length > 0 && profileRes[0].total_xp ? Number(profileRes[0].total_xp) : 0;
+    // Cek EXP bulan ini, termasuk hasil scan AI
+    const userXp = await getMonthlyXp(userId);
     if (userXp < reward.requiredXp) throw new Error("EXP tidak cukup untuk hadiah ini.");
 
     // Cek apakah sudah diklaim di bulan ini
@@ -147,8 +159,8 @@ export async function claimReward(rewardId: string) {
     }
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Gagal klaim hadiah:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: getErrorMessage(error) };
   }
 }

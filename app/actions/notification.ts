@@ -1,7 +1,5 @@
 "use server";
 
-import { Resend } from "resend";
-
 export async function sendBalanceNotificationEmail({
   email,
   name,
@@ -25,7 +23,7 @@ export async function sendBalanceNotificationEmail({
   const emailHtml = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
       <div style="background-color: ${color}; padding: 24px; text-align: center;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">WasteBank Notification</h1>
+        <h1 style="color: white; margin: 0; font-size: 24px;">RecoCycle Notification</h1>
       </div>
       <div style="padding: 32px 24px; background-color: #ffffff;">
         <p style="font-size: 16px; color: #374151; margin-top: 0;">Halo <strong>${name}</strong>,</p>
@@ -44,7 +42,7 @@ export async function sendBalanceNotificationEmail({
         }
       </div>
       <div style="background-color: #f9fafb; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb;">
-        <p style="font-size: 12px; color: #9ca3af; margin: 0;">&copy; 2026 WasteBank Indonesia. All rights reserved.</p>
+        <p style="font-size: 12px; color: #9ca3af; margin: 0;">&copy; 2026 RecoCycle Indonesia. All rights reserved.</p>
       </div>
     </div>
   `;
@@ -64,20 +62,25 @@ export async function sendBalanceNotificationEmail({
   }
 
   try {
-    const resend = new Resend(apiKey);
-    
-    // Using default onboarding email address for Resend testing domain (or you can config your own domain)
-    // Resend requires on-boarding email if domain is not validated, commonly `onboarding@resend.dev`
-    const { data, error } = await resend.emails.send({
-      from: "WasteBank <onboarding@resend.dev>",
-      to: email, 
-      subject: `Notifikasi Saldo WasteBank - Rp ${amount.toLocaleString("id-ID")}`,
-      html: emailHtml,
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "RecoCycle <onboarding@resend.dev>",
+        to: email,
+        subject: `Notifikasi Saldo RecoCycle - Rp ${amount.toLocaleString("id-ID")}`,
+        html: emailHtml,
+      }),
     });
 
-    if (error) {
-      console.error("Resend API Error:", error);
-      return { success: false, error };
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Resend API Error:", data);
+      return { success: false, error: data };
     }
 
     return { success: true, data };

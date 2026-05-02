@@ -12,11 +12,20 @@ export async function getRegisteredUsers() {
       limit: 50,
     });
 
-    // Fetch user profiles from database to get real XP for this month
+    // Hitung XP bulanan dari transaksi valid.
+    // Scan AI tidak punya weight, jadi diberi XP tetap +100 per transaksi scan.
     const profiles = await sql`
-      SELECT user_id, SUM(weight * 50) as total_xp 
+      SELECT
+        user_id,
+        SUM(
+          CASE
+            WHEN type LIKE 'Scan AI:%' THEN 100
+            ELSE COALESCE(weight, 0) * 50
+          END
+        ) as total_xp
       FROM transactions 
-      WHERE date >= date_trunc('month', NOW())
+      WHERE (status = 'verified' OR status = 'Selesai')
+        AND date >= date_trunc('month', NOW())
       GROUP BY user_id
     `;
     const profileMap = new Map(profiles.map(p => [p.user_id, Number(p.total_xp)]));

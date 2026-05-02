@@ -15,27 +15,25 @@ export default function TarikSaldoPage() {
     method: "bank_transfer",
     accountNumber: "",
     accountName: "",
-    amount: ""
+    amount: "",
   });
 
   const { balance, withdrawals, requestWithdrawal } = useWasteStore();
 
   const totalPendingOrSent = withdrawals
-    .filter(w => w.status !== 'Ditolak')
-    .reduce((acc, w) => acc + w.amount, 0);
+    .filter((withdrawal) => withdrawal.status !== "Ditolak")
+    .reduce((acc, withdrawal) => acc + withdrawal.amount, 0);
   const availableBalance = balance - totalPendingOrSent;
 
-  const getAmountNumber = (amountString: string) => {
-    return Number(amountString.replace(/[^0-9]/g, ''));
+  const getAmountNumber = (amountString: string) => Number(amountString.replace(/[^0-9]/g, ""));
+
+  const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = event.target.value.replace(/[^0-9]/g, "");
+    setForm({ ...form, amount: rawValue });
   };
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawVal = e.target.value.replace(/[^0-9]/g, '');
-    setForm({ ...form, amount: rawVal });
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     const withdrawValue = getAmountNumber(form.amount);
 
     if (withdrawValue < 50000) {
@@ -48,45 +46,41 @@ export default function TarikSaldoPage() {
     }
 
     setIsSubmitting(true);
-    // Mocking API call for withdrawal
+
     setTimeout(() => {
       const success = requestWithdrawal({
         method: form.method,
         accountName: form.accountName,
         accountNumber: form.accountNumber,
-        amount: withdrawValue
+        amount: withdrawValue,
       });
-      
+
       if (success) {
         setIsSubmitting(false);
         setIsSuccess(true);
 
         const newTotalBalance = availableBalance - withdrawValue;
-        
-        // Trigger modern UI Toast
+
         toast.info(
           <div className="flex flex-col gap-1">
             <span className="font-bold text-stone-900">Penarikan Diajukan!</span>
-            <span className="text-stone-700 font-medium">- Rp ${withdrawValue.toLocaleString("id-ID")}</span>
-            <span className="text-xs text-stone-500 mt-1">Sedang menunggu verifikasi admin.</span>
-          </div>, 
+            <span className="font-medium text-stone-700">- Rp {withdrawValue.toLocaleString("id-ID")}</span>
+            <span className="mt-1 text-xs text-stone-500">Sedang menunggu verifikasi admin.</span>
+          </div>,
           { duration: 5000 }
         );
 
-        // Trigger background Email via Server Action
         if (user?.primaryEmailAddress?.emailAddress) {
-          sendBalanceNotificationEmail({
+          void sendBalanceNotificationEmail({
             email: user.primaryEmailAddress.emailAddress,
             name: user.fullName || user.username || "Eco Warrior",
             amount: withdrawValue,
             type: "withdrawal",
-            balance: newTotalBalance
+            balance: newTotalBalance,
           });
         }
 
         setForm({ method: "bank_transfer", accountNumber: "", accountName: "", amount: "" });
-
-        // remove success banner after 5s
         setTimeout(() => setIsSuccess(false), 5000);
       } else {
         setIsSubmitting(false);
@@ -98,12 +92,18 @@ export default function TarikSaldoPage() {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
       <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2 space-y-6">
-          <header className="flex flex-col gap-2 rounded-3xl border border-stone-200 bg-white px-5 py-4 shadow-sm sm:px-7 sm:py-5">
+        <div className="space-y-6 md:col-span-2">
+          <header className="glass-panel flex flex-col gap-2 rounded-[30px] px-5 py-4 sm:px-7 sm:py-5">
             <h1 className="text-2xl font-semibold text-stone-900">Tarik Saldo Reward</h1>
-            <p className="text-sm text-stone-600">Pindahkan saldo WasteBank Anda ke rekening bank atau e-wallet pilihan. Penarikan akan <span className="font-semibold text-stone-800">diverifikasi terlebih dahulu</span>.</p>
+            <p className="text-sm text-stone-700">
+              Pindahkan saldo RecoCycle Anda ke rekening bank atau e-wallet pilihan.
+              Penarikan akan <span className="font-semibold text-stone-900">diverifikasi terlebih dahulu</span>.
+            </p>
             <div className="mt-2 flex">
-              <Link href="/dashboard/tarik/status" className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:underline">
+              <Link
+                href="/dashboard/tarik/status"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 transition hover:text-emerald-800 hover:underline"
+              >
                 Lihat Status Penarikan
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -112,18 +112,23 @@ export default function TarikSaldoPage() {
             </div>
           </header>
 
-          <div className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm p-5 sm:p-7">
+          <div className="glass-panel overflow-hidden rounded-[30px] p-5 sm:p-7">
             {isSuccess ? (
-              <div className="rounded-2xl bg-emerald-50 p-6 text-center">
+              <div className="rounded-[28px] border border-emerald-200/70 bg-emerald-50/90 p-6 text-center shadow-[0_16px_40px_rgba(16,185,129,0.08)]">
                 <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </span>
                 <p className="text-lg font-semibold text-emerald-800">Penarikan Berhasil Diajukan</p>
-                <p className="mt-2 text-sm text-emerald-700">Permintaan penarikan Anda sedang <span className="font-semibold">menunggu verifikasi admin</span>.</p>
+                <p className="mt-2 text-sm text-emerald-700">
+                  Permintaan penarikan Anda sedang <span className="font-semibold">menunggu verifikasi admin</span>.
+                </p>
                 <div className="mt-5">
-                  <Link href="/dashboard/tarik/status" className="inline-block rounded-full bg-emerald-700 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800">
+                  <Link
+                    href="/dashboard/tarik/status"
+                    className="inline-block rounded-full bg-emerald-700 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800"
+                  >
                     Cek Status Penarikan
                   </Link>
                 </div>
@@ -134,8 +139,8 @@ export default function TarikSaldoPage() {
                   <label className="mb-1.5 block text-sm font-medium text-stone-700">Metode Penarikan</label>
                   <select
                     value={form.method}
-                    onChange={(e) => setForm({ ...form, method: e.target.value })}
-                    className="w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                    onChange={(event) => setForm({ ...form, method: event.target.value })}
+                    className="w-full rounded-2xl border border-white/60 bg-white/75 px-3 py-2.5 text-sm outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700/30"
                   >
                     <option value="bank_transfer">Transfer Bank (BCA, Mandiri, BNI, dll)</option>
                     <option value="gopay">GoPay</option>
@@ -152,8 +157,8 @@ export default function TarikSaldoPage() {
                       required
                       type="text"
                       value={form.accountName}
-                      onChange={(e) => setForm({ ...form, accountName: e.target.value })}
-                      className="w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                      onChange={(event) => setForm({ ...form, accountName: event.target.value })}
+                      className="w-full rounded-2xl border border-white/60 bg-white/75 px-3 py-2.5 text-sm outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700/30"
                       placeholder="Nama di buku tabungan/akun"
                     />
                   </div>
@@ -163,8 +168,8 @@ export default function TarikSaldoPage() {
                       required
                       type="tel"
                       value={form.accountNumber}
-                      onChange={(e) => setForm({ ...form, accountNumber: e.target.value })}
-                      className="w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                      onChange={(event) => setForm({ ...form, accountNumber: event.target.value })}
+                      className="w-full rounded-2xl border border-white/60 bg-white/75 px-3 py-2.5 text-sm outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700/30"
                       placeholder="Contoh: 0812xxxx atau 7310xxxx"
                     />
                   </div>
@@ -173,13 +178,13 @@ export default function TarikSaldoPage() {
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-stone-700">Nominal Penarikan (Rp)</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-stone-500 text-sm font-medium">Rp</span>
+                    <span className="absolute left-3 top-2.5 text-sm font-medium text-stone-500">Rp</span>
                     <input
                       required
                       type="text"
                       value={form.amount ? Number(form.amount).toLocaleString("id-ID") : ""}
                       onChange={handleAmountChange}
-                      className="w-full rounded-xl border border-stone-300 pl-9 pr-3 py-2.5 text-sm outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                      className="w-full rounded-2xl border border-white/60 bg-white/75 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700/30"
                       placeholder="50.000"
                     />
                   </div>
@@ -190,7 +195,7 @@ export default function TarikSaldoPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting || !form.amount}
-                    className="w-full rounded-full bg-stone-900 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-stone-800 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
+                    className="w-full rounded-full bg-stone-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-stone-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:transform-none"
                   >
                     {isSubmitting ? "Memproses Transaksi..." : "Tarik Dana Sekarang"}
                   </button>
@@ -200,10 +205,11 @@ export default function TarikSaldoPage() {
           </div>
         </div>
 
-        {/* Right Info Sidebar */}
         <div className="space-y-4">
-          <div className="group rounded-3xl border border-stone-200 bg-stone-900 p-5 shadow-sm sm:p-6 text-white transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-            <p className="text-sm font-medium text-stone-400 group-hover:text-stone-300 transition-colors">Total Saldo Tersedia</p>
+          <div className="glass-dark-panel group rounded-[30px] p-5 text-white transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-6">
+            <p className="text-sm font-medium text-stone-400 transition-colors group-hover:text-stone-300">
+              Total Saldo Tersedia
+            </p>
             <p className="mt-2 text-3xl font-semibold">Rp {availableBalance.toLocaleString("id-ID")}</p>
             {totalPendingOrSent > 0 && (
               <p className="mt-2 inline-flex rounded-full bg-stone-800 px-3 py-1 text-xs font-medium text-stone-300">
@@ -211,21 +217,23 @@ export default function TarikSaldoPage() {
               </p>
             )}
             <div className="mt-5 border-t border-stone-700 pt-4">
-              <p className="text-xs text-stone-400">Gunakan sisa kuota dengan bijak, tidak ada potongan biaya administrasi bulanan.</p>
+              <p className="text-xs text-stone-400">
+                Gunakan sisa kuota dengan bijak, tidak ada potongan biaya administrasi bulanan.
+              </p>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:bg-emerald-100/50">
-            <h3 className="font-semibold text-emerald-900 flex items-center gap-2 transform transition-transform group-hover:translate-x-1">
+          <div className="glass-panel rounded-[30px] p-5 transition-all duration-300 hover:shadow-md">
+            <h3 className="flex items-center gap-2 font-semibold text-emerald-900">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               Informasi Penting
             </h3>
-            <ul className="mt-3 text-sm text-emerald-800 space-y-2 list-disc list-inside">
-              <li>Penarikan akan diverifikasi oleh tim admin kami (maks 1x24 jam kerja).</li>
-              <li>Minimal penarikan e-wallet Rp 50k, sementara Bank Lokal Rp 100k.</li>
-              <li>Awas penipuan! Verifikasi rekening via OTP Clerk.</li>
+            <ul className="mt-3 list-inside list-disc space-y-2 text-sm text-emerald-800">
+              <li>Penarikan akan diverifikasi oleh tim admin kami dalam maksimal 1x24 jam kerja.</li>
+              <li>Minimal penarikan e-wallet Rp 50.000, sementara bank lokal Rp 100.000.</li>
+              <li>Pastikan nama pemilik akun dan nomor tujuan sudah benar sebelum mengirim.</li>
             </ul>
           </div>
         </div>

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { getWasteCatalog } from "@/actions/enhancedTransaction";
-import { getUserById, createAdminTransaction } from "@/actions/adminVerification";
-import { parseQRCode } from "@/actions/qrParser";
+import { getWasteCatalog } from "@/app/actions/enhancedTransaction";
+import { getUserById, createAdminTransaction } from "@/app/actions/adminVerification";
+import { parseQRCode } from "@/app/actions/qrParser";
 
 interface WasteCatalogItem {
   id: string;
@@ -91,7 +91,7 @@ export default function ScannerPage() {
       setUserData(userDataFormatted);
       setSelectedWasteType("");
       setWeight("");
-    } catch (err) {
+    } catch {
       setError("Terjadi kesalahan saat mencari pengguna");
     } finally {
       setIsLoading(false);
@@ -144,7 +144,7 @@ export default function ScannerPage() {
       } else {
         setError(result.error || "Gagal memproses transaksi");
       }
-    } catch (err) {
+    } catch {
       setError("Terjadi kesalahan saat memproses transaksi");
     } finally {
       setIsSubmitting(false);
@@ -177,14 +177,14 @@ export default function ScannerPage() {
     <div className="mx-auto w-full max-w-3xl space-y-6 pb-12">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-stone-900">Scanner QR Admin</h1>
-          <p className="text-sm text-stone-500">Proses deposit sampah dari pelanggan datang langsung.</p>
+          <h1 className="text-2xl font-semibold text-white">Scanner QR Admin</h1>
+          <p className="text-sm text-slate-300">Proses deposit sampah dari pelanggan datang langsung.</p>
         </div>
       </div>
 
       {!userData && (
-        <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-medium text-stone-800">Scan QR Code atau Masukkan ID</h2>
+        <div className="glass-dark-panel rounded-xl p-6">
+          <h2 className="mb-4 text-lg font-medium text-white">Scan QR Code atau Masukkan ID</h2>
           <div className="space-y-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-stone-700">
@@ -214,7 +214,7 @@ export default function ScannerPage() {
         <div className="space-y-4">
           <button
             onClick={resetForm}
-            className="flex items-center gap-2 text-sm text-stone-500 hover:text-stone-700"
+            className="flex items-center gap-2 text-sm text-slate-300 hover:text-white"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -222,13 +222,13 @@ export default function ScannerPage() {
             Scan Ulang
           </button>
 
-          <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-medium text-stone-800">Informasi Nasabah</h2>
+          <div className="glass-dark-panel rounded-xl p-6">
+            <h2 className="mb-4 text-lg font-medium text-white">Informasi Nasabah</h2>
             <div className="flex items-start justify-between">
               <div className="space-y-1">
                 <p className="text-lg font-semibold text-stone-900">{userData.firstName} {userData.lastName}</p>
-                <p className="text-sm text-stone-500">{userData.email}</p>
-                <p className="text-sm text-stone-500">{userData.phoneNumber || "No telepon tidak ada"}</p>
+                <p className="text-sm text-slate-300">{userData.email}</p>
+                <p className="text-sm text-slate-300">{userData.phoneNumber || "No telepon tidak ada"}</p>
               </div>
               <div className="text-right">
                 <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${tierBadgeColor(userData.tierInfo.tier)}`}>
@@ -237,13 +237,13 @@ export default function ScannerPage() {
                 <p className="mt-2 text-2xl font-bold text-emerald-600">
                   Rp{userData.availableBalance.toLocaleString("id-ID")}
                 </p>
-                <p className="text-xs text-stone-500">Saldo Tersedia</p>
+                <p className="text-xs text-slate-300">Saldo Tersedia</p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-medium text-stone-800">Input Sampah</h2>
+          <div className="glass-dark-panel rounded-xl p-6">
+            <h2 className="mb-4 text-lg font-medium text-white">Input Sampah</h2>
             <div className="space-y-4">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-stone-700">
@@ -279,8 +279,8 @@ export default function ScannerPage() {
               </div>
 
               {calculation && (
-                <div className="rounded-lg bg-stone-50 p-4">
-                  <h3 className="mb-3 text-sm font-medium text-stone-700">Pratinjau Reward</h3>
+                <div className="rounded-lg bg-white/8 p-4">
+                  <h3 className="mb-3 text-sm font-medium text-white">Pratinjau Reward</h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-stone-500">Base Reward:</span>

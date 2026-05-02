@@ -27,6 +27,24 @@ export default function TrashScanner() {
   const isScanningRef = useRef<boolean>(false);
   const detectStartRef = useRef<number | null>(null);
 
+  const stopCamera = () => {
+    setIsScanning(false);
+    isScanningRef.current = false;
+    detectStartRef.current = null;
+    setScanProgress(0);
+    if (requestRef.current) {
+      cancelAnimationFrame(requestRef.current);
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.srcObject = null;
+    }
+  };
+
   // Load Model
   useEffect(() => {
     const loadModel = async () => {
@@ -68,25 +86,7 @@ export default function TrashScanner() {
     }
   };
 
-  const stopCamera = () => {
-    setIsScanning(false);
-    isScanningRef.current = false;
-    detectStartRef.current = null;
-    setScanProgress(0);
-    if (requestRef.current) {
-      cancelAnimationFrame(requestRef.current);
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.srcObject = null;
-    }
-  };
-
-  const predictLoop = async () => {
+  const predictLoop = async (frameTime: number) => {
     // 1. Model Readiness Validation: ONLY run if model is loaded and video is ready
     if (model && videoRef.current && videoRef.current.readyState >= 2) {
       try {
@@ -97,20 +97,19 @@ export default function TrashScanner() {
         const sorted = [...rawPredictions].sort((a, b) => b.probability - a.probability);
 
         // Throttle UI updates to ~5fps (every 200ms) to make it smooth
-        const now = Date.now();
-        if (now - lastUpdateRef.current > 200) {
+        if (frameTime - lastUpdateRef.current > 200) {
           setPredictions(sorted);
-          lastUpdateRef.current = now;
+          lastUpdateRef.current = frameTime;
         }
 
         // 4. Require 5 seconds of continuous detection to prevent instant success
         const highestPrediction = sorted[0];
         if (highestPrediction.probability >= 0.50) {
           if (!detectStartRef.current) {
-            detectStartRef.current = Date.now(); // Start timer
+            detectStartRef.current = frameTime; // Start timer
             setScanProgress(0);
           } else {
-            const elapsed = Date.now() - detectStartRef.current;
+            const elapsed = frameTime - detectStartRef.current;
             setScanProgress(Math.min((elapsed / 5000) * 100, 100)); // Update progress bar
             
             if (elapsed >= 5000) { // Hold for 5s
@@ -303,7 +302,7 @@ export default function TrashScanner() {
               <h3 className="text-2xl font-bold text-stone-900 mb-2">Berhasil!</h3>
               <p className="text-stone-600 mb-8 leading-relaxed">
                 Sampah terverifikasi: <span className="font-semibold text-stone-900">{detectedTrash}</span>.<br />
-                Dapatkan <span className="font-bold text-emerald-600">50 Eco-Token</span>.
+                Dapatkan <span className="font-bold text-emerald-600">50 Eco-Token</span> dan <span className="font-bold text-emerald-700">100 XP</span>.
               </p>
               <button
                 onClick={handleConfirm}

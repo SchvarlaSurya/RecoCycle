@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
-import { sql, queryMany, queryOne, execute } from "@/lib/db";
+import { sql } from "@/lib/db";
 
 export type NotificationType = "deposit" | "withdrawal" | "system";
 
@@ -25,12 +25,12 @@ interface CreateNotificationParams {
 }
 
 export async function getUserNotifications(): Promise<Notification[]> {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) {
     throw new Error("Unauthorized");
   }
 
-  const notifications = await queryMany<Notification>`
+  const notifications = await sql<Notification[]>`
     SELECT id, user_id, title, message, type, is_read, related_tx_id, created_at
     FROM notifications
     WHERE user_id = ${userId}
@@ -41,22 +41,24 @@ export async function getUserNotifications(): Promise<Notification[]> {
 }
 
 export async function getUnreadCount(): Promise<number> {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) {
     throw new Error("Unauthorized");
   }
 
-  const result = await queryOne<{ count: number }>`
+  const result = await sql<{ count: number }[]>`
     SELECT COUNT(*) as count
     FROM notifications
     WHERE user_id = ${userId} AND is_read = false
   `;
+  const count = result[0]?.count ?? 0;
+  return count;
 
   return result?.count ?? 0;
 }
 
 export async function markAsRead(notificationId: number): Promise<{ success: boolean }> {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) {
     throw new Error("Unauthorized");
   }
@@ -71,7 +73,7 @@ export async function markAsRead(notificationId: number): Promise<{ success: boo
 }
 
 export async function markAllAsRead(): Promise<{ success: boolean }> {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) {
     throw new Error("Unauthorized");
   }
@@ -117,14 +119,14 @@ export async function sendNotificationEmail({
   const emailHtml = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
       <div style="background-color: #0f172a; padding: 24px; text-align: center;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">WasteBank Notification</h1>
+        <h1 style="color: white; margin: 0; font-size: 24px;">RecoCycle Notification</h1>
       </div>
       <div style="padding: 32px 24px; background-color: #ffffff;">
         <p style="font-size: 16px; color: #374151; margin-top: 0;">Halo <strong>${name}</strong>,</p>
         <p style="font-size: 16px; color: #374151;">${message}</p>
       </div>
       <div style="background-color: #f9fafb; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb;">
-        <p style="font-size: 12px; color: #9ca3af; margin: 0;">&copy; 2026 WasteBank Indonesia. All rights reserved.</p>
+        <p style="font-size: 12px; color: #9ca3af; margin: 0;">&copy; 2026 RecoCycle Indonesia. All rights reserved.</p>
       </div>
     </div>
   `;
@@ -142,19 +144,25 @@ export async function sendNotificationEmail({
   }
 
   try {
-    const { Resend } = await import("resend");
-    const resend = new Resend(apiKey);
-
-    const { data, error } = await resend.emails.send({
-      from: "WasteBank <onboarding@resend.dev>",
-      to: email,
-      subject: title,
-      html: emailHtml,
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "RecoCycle <onboarding@resend.dev>",
+        to: email,
+        subject: title,
+        html: emailHtml,
+      }),
     });
 
-    if (error) {
-      console.error("Resend API Error:", error);
-      return { success: false, error };
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Resend API Error:", data);
+      return { success: false, error: data };
     }
 
     return { success: true, data };

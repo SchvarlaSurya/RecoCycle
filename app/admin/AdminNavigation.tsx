@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { UserButton } from "@clerk/nextjs";
+import RecoCycleBrand from "@/app/components/RecoCycleBrand";
 
 const navigation = [
   {
@@ -74,13 +75,14 @@ export default function AdminNavigation() {
           key={item.name}
           href={item.href}
           onClick={() => setMobileMenuOpen(false)}
-          className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+          className={`group relative flex items-center gap-3 rounded-2xl border px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
             isActive
-              ? "bg-emerald-600/10 text-emerald-100 shadow-sm"
-              : "text-stone-400 hover:bg-white/5 hover:text-stone-200"
+              ? "brand-mesh-dark border-emerald-400/20 bg-emerald-500/12 text-emerald-100 shadow-[0_12px_24px_rgba(16,185,129,0.08)]"
+              : "border-transparent text-stone-300 hover:border-white/10 hover:bg-white/8 hover:text-white"
           }`}
         >
-          <div className={`transition-colors duration-200 ${isActive ? "text-emerald-400" : "text-stone-500 group-hover:text-emerald-400"}`}>
+          {isActive && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-gradient-to-b from-emerald-400 to-cyan-300" />}
+          <div className={`transition-colors duration-200 ${isActive ? "text-emerald-400" : "text-stone-400 group-hover:text-emerald-400"}`}>
             {item.icon}
           </div>
           {item.name}
@@ -91,37 +93,28 @@ export default function AdminNavigation() {
 
   return (
     <>
-      {/* Mobile Drawer Overlay */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-md md:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
-      {/* Mobile Drawer Menu */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-72 transform bg-stone-900 shadow-2xl transition-transform duration-300 ease-in-out md:hidden ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="flex h-16 items-center justify-between border-b border-stone-700/50 px-6">
-          <div className="flex items-center">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-xs font-bold text-white shadow-lg shadow-emerald-600/30">
-              WB
-            </span>
-            <div className="ml-3">
-              <span className="block font-semibold tracking-wide text-white text-sm">WasteBank</span>
-              <span className="block text-[10px] font-medium uppercase tracking-[0.15em] text-emerald-400">Admin Panel</span>
-            </div>
-          </div>
-          <button onClick={() => setMobileMenuOpen(false)} className="rounded-full p-2 text-stone-400 hover:bg-white/10 hover:text-white">
+      <div className={`fixed inset-y-0 left-0 z-50 w-72 transform border-r border-white/10 bg-slate-950/88 shadow-2xl backdrop-blur-2xl transition-transform duration-300 ease-in-out md:hidden ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="brand-mesh-dark pointer-events-none absolute inset-0 opacity-80" />
+        <div className="relative flex h-20 items-center justify-between border-b border-white/10 px-6">
+          <RecoCycleBrand theme="dark" size="sm" showTagline />
+          <button onClick={() => setMobileMenuOpen(false)} className="rounded-full border border-white/10 bg-white/5 p-2 text-stone-400 transition hover:bg-white/10 hover:text-white">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <nav className="space-y-1 px-4 py-6">
+        <nav className="relative space-y-2 px-4 py-6">
           {renderNavLinks()}
         </nav>
-        <div className="absolute bottom-0 left-0 right-0 border-t border-stone-700/50 p-4">
-          <Link href="/dashboard" className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2.5 text-sm text-stone-400 transition hover:bg-white/10 hover:text-white">
+        <div className="absolute bottom-0 left-0 right-0 z-10 border-t border-white/10 p-4">
+          <Link href="/dashboard" className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-stone-400 transition hover:bg-white/10 hover:text-white">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
             </svg>
@@ -130,22 +123,16 @@ export default function AdminNavigation() {
         </div>
       </div>
 
-      {/* Sidebar - Desktop */}
-      <aside className="hidden w-[260px] flex-col bg-stone-900 md:flex">
-        <div className="flex h-16 items-center border-b border-stone-700/50 px-6">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-xs font-bold text-white shadow-lg shadow-emerald-600/30">
-            WB
-          </span>
-          <div className="ml-3">
-            <span className="block font-semibold tracking-wide text-white">WasteBank</span>
-            <span className="block text-[10px] font-medium uppercase tracking-[0.15em] text-emerald-400">Admin Panel</span>
-          </div>
+      <aside className="relative hidden w-[280px] flex-col border-r border-white/10 bg-slate-950/72 backdrop-blur-2xl md:flex">
+        <div className="brand-mesh-dark pointer-events-none absolute inset-0 opacity-75" />
+        <div className="relative flex h-20 items-center border-b border-white/10 px-6">
+          <RecoCycleBrand theme="dark" size="sm" showTagline />
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-6">
+        <nav className="relative flex-1 space-y-2 overflow-y-auto px-4 py-6">
           {renderNavLinks()}
         </nav>
-        <div className="border-t border-stone-700/50 p-4">
-          <Link href="/dashboard" className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2.5 text-sm text-stone-400 transition hover:bg-white/10 hover:text-white">
+        <div className="relative z-10 border-t border-white/10 p-4">
+          <Link href="/dashboard" className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-stone-400 transition hover:bg-white/10 hover:text-white">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
             </svg>
@@ -154,20 +141,19 @@ export default function AdminNavigation() {
         </div>
       </aside>
 
-      {/* Top Header for Mobile */}
       <div className="md:hidden">
-        <header className="fixed top-0 left-0 right-0 z-30 flex h-16 items-center justify-between border-b border-stone-700/50 bg-stone-900/95 px-4 backdrop-blur-md sm:px-6">
+        <header className="fixed top-0 left-0 right-0 z-30 flex h-16 items-center justify-between border-b border-white/10 bg-slate-950/80 px-4 backdrop-blur-2xl sm:px-6">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="rounded-full p-2 text-stone-400 hover:bg-white/10 hover:text-white focus:outline-none"
+              className="rounded-full border border-white/10 bg-white/5 p-2 text-stone-400 hover:bg-white/10 hover:text-white focus:outline-none"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7" />
               </svg>
             </button>
             <div>
-              <span className="font-semibold text-white">WasteBank</span>
+              <span className="font-semibold text-white">RecoCycle</span>
               <span className="ml-2 text-[10px] font-medium uppercase tracking-wider text-emerald-400">Admin</span>
             </div>
           </div>

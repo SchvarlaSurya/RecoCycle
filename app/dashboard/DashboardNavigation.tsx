@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { UserButton } from "@clerk/nextjs";
+import RecoCycleBrand from "@/app/components/RecoCycleBrand";
 
 const navigation = [
   { 
@@ -84,20 +85,14 @@ const navigation = [
 export default function DashboardNavigation({ claimableCount = 0 }: { claimableCount?: number }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [seenCount, setSeenCount] = useState<string | null>(null);
 
-  // Supaya tak ada Hydration Mismatch, panggil localStorage di useEffect
-  useEffect(() => {
-    setSeenCount(localStorage.getItem("seen_reward_count"));
-  }, []);
-
-  // Saat user buka halaman rewards, tandai sebagai 'dilihat'
   useEffect(() => {
     if (pathname === "/dashboard/rewards" && claimableCount > 0) {
       localStorage.setItem("seen_reward_count", String(claimableCount));
-      setSeenCount(String(claimableCount));
     }
   }, [pathname, claimableCount]);
+
+  const seenCount = typeof window !== "undefined" ? localStorage.getItem("seen_reward_count") : null;
 
   const renderNavLinks = () => {
     return navigation.map((item) => {
@@ -110,12 +105,13 @@ export default function DashboardNavigation({ claimableCount = 0 }: { claimableC
           key={item.name}
           href={item.href}
           onClick={() => setMobileMenuOpen(false)}
-          className={`relative group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 hover:-translate-y-1 active:scale-95 border border-transparent ${
+          className={`relative group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-all duration-300 hover:-translate-y-1 active:scale-95 border border-transparent ${
             isActive
-              ? "bg-white/80 backdrop-blur-md text-emerald-900 shadow-[0_8px_16px_rgba(16,185,129,0.08)] border-white"
-              : "text-stone-600 hover:bg-white/60 hover:text-stone-900 hover:shadow-sm hover:border-white/50"
+              ? "brand-mesh-light border-white/70 bg-white/82 text-emerald-900 shadow-[0_10px_24px_rgba(16,185,129,0.10)] backdrop-blur-md"
+              : "text-stone-700 hover:border-white/60 hover:bg-white/72 hover:text-stone-950 hover:shadow-sm"
           }`}
         >
+          {isActive && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-gradient-to-b from-emerald-500 to-cyan-400" />}
           <div className={`transition-all duration-300 transform group-hover:scale-110 ${isActive ? "text-emerald-700" : "text-stone-400 group-hover:text-emerald-600"}`}>
             {item.icon}
           </div>
@@ -137,53 +133,51 @@ export default function DashboardNavigation({ claimableCount = 0 }: { claimableC
       {/* Mobile Drawer Overlay */}
       {mobileMenuOpen && (
         <div 
-          className="fixed inset-0 z-40 bg-stone-900/50 backdrop-blur-sm md:hidden" 
+          className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-md md:hidden" 
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
-      {/* Mobile Drawer Menu */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-72 transform bg-white/80 backdrop-blur-2xl shadow-[20px_0_40px_rgba(0,0,0,0.05)] transition-transform duration-300 ease-in-out md:hidden ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex h-16 items-center justify-between border-b border-white/50 px-6">
-          <div className="flex items-center">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-700 text-xs font-bold text-white">WB</span>
-            <span className="ml-2 font-semibold tracking-wide text-stone-900">WasteBank</span>
-          </div>
-          <button onClick={() => setMobileMenuOpen(false)} className="rounded-full p-2 text-stone-500 hover:bg-stone-100">
+      <div className={`fixed inset-y-0 left-0 z-50 w-72 transform border-r border-white/45 bg-white/72 shadow-[20px_0_50px_rgba(15,23,42,0.12)] backdrop-blur-2xl transition-transform duration-300 ease-in-out md:hidden ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="brand-mesh-light absolute inset-0 opacity-70" />
+        <div className="flex h-20 items-center justify-between border-b border-white/45 px-6">
+          <RecoCycleBrand size="sm" showTagline />
+          <button onClick={() => setMobileMenuOpen(false)} className="rounded-full border border-white/60 bg-white/75 p-2 text-stone-700 transition hover:bg-white">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <nav className="space-y-1.5 px-4 py-6">
+        <nav className="relative space-y-2 px-4 py-6">
           {renderNavLinks()}
         </nav>
       </div>
 
-      {/* Sidebar - Desktop */}
-      <aside className="hidden w-64 flex-col border-r border-white/50 bg-white/40 backdrop-blur-xl shadow-[4px_0_24px_rgba(0,0,0,0.02)] md:flex z-30">
-        <div className="flex h-16 items-center border-b border-white/50 px-6">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-700 text-xs font-bold text-white">WB</span>
-          <span className="ml-2 font-semibold tracking-wide text-stone-900">WasteBank</span>
+      <aside className="relative z-30 hidden w-72 flex-col border-r border-white/45 bg-white/62 backdrop-blur-2xl shadow-[8px_0_28px_rgba(15,23,42,0.06)] md:flex">
+        <div className="brand-mesh-light absolute inset-0 opacity-70" />
+        <div className="flex h-20 items-center border-b border-white/45 px-6">
+          <RecoCycleBrand size="sm" showTagline />
         </div>
-        <nav className="flex-1 space-y-1.5 px-4 py-8">
+        <nav className="relative flex-1 space-y-2 px-4 py-8">
           {renderNavLinks()}
         </nav>
       </aside>
 
-      {/* Top Header for Mobile */}
       <div className="md:hidden">
-        <header className="fixed top-0 left-0 right-0 z-30 flex h-16 items-center justify-between border-b border-white/50 bg-white/60 px-4 backdrop-blur-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] sm:px-6">
+        <header className="fixed left-0 right-0 top-0 z-30 flex h-16 items-center justify-between border-b border-white/45 bg-white/55 px-4 backdrop-blur-2xl shadow-[0_8px_24px_rgba(15,23,42,0.06)] sm:px-6">
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setMobileMenuOpen(true)}
-              className="rounded-full p-2 text-stone-600 hover:bg-white/60 active:scale-90 transition-all focus:outline-none"
+              className="rounded-full border border-white/50 bg-white/55 p-2 text-stone-600 transition-all hover:bg-white active:scale-90 focus:outline-none"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7" />
               </svg>
             </button>
-            <span className="font-semibold text-stone-900">WasteBank</span>
+            <div>
+              <span className="block font-semibold text-stone-900">RecoCycle</span>
+              <span className="block text-[10px] uppercase tracking-[0.18em] text-stone-500">Dashboard</span>
+            </div>
           </div>
           <div>
             <UserButton />

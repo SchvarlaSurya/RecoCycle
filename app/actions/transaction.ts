@@ -30,9 +30,9 @@ export async function getUserDashboardData() {
     `;
 
     // Calculate total balance from DB source of truth
-    // ONLY include verified transactions for balance
+    // Support both legacy and current "completed" statuses.
     const totalEarnings = transactions
-      .filter(tx => tx.status === 'verified')
+      .filter(tx => tx.status === "verified" || tx.status === "Selesai")
       .reduce((sum, tx) => sum + Number(tx.reward), 0);
 
     const totalWithdrawnAndPending = withdrawals
@@ -148,25 +148,54 @@ export async function submitAIScanReward(trashType: string) {
 
 export async function getGlobalWasteStats() {
   try {
-    // 1. Distribusi Jenis Sampah (All users) - MONTHLY - Only Verified
-    const distributionRaw = await sql`
-      SELECT type as name, SUM(weight) as value 
-      FROM transactions 
-      WHERE (status = 'verified' OR status = 'Selesai') 
-        AND date >= date_trunc('month', NOW())
-      GROUP BY type 
-      ORDER BY value DESC
-    `;
+    let distributionRaw: { name: string; value: number | string }[] = [];
+    let weeklyRaw: { dt: string | Date; total: number | string }[] = [];
 
-    // 2. Tren Seminggu (All users) - CURRENT WEEK (Monday-Sunday) - Only Verified
-    const weeklyRaw = await sql`
-      SELECT DATE(date) as dt, SUM(weight) as total 
-      FROM transactions 
-      WHERE (status = 'verified' OR status = 'Selesai')
-        AND date >= date_trunc('week', NOW())
-      GROUP BY DATE(date)
-      ORDER BY dt ASC
-    `;
+    try {
+      // Prioritaskan skema baru: hasil verifikasi admin memakai actual_weight + waste_type
+      distributionRaw = await sql`
+        SELECT
+          waste_type as name,
+          SUM(COALESCE(actual_weight, 0)) as value
+        FROM transactions 
+        WHERE (status = 'verified' OR status = 'Selesai') 
+          AND date >= date_trunc('month', NOW())
+          AND COALESCE(actual_weight, 0) > 0
+        GROUP BY waste_type
+        ORDER BY value DESC
+      `;
+
+      weeklyRaw = await sql`
+        SELECT
+          DATE(date) as dt,
+          SUM(COALESCE(actual_weight, 0)) as total
+        FROM transactions 
+        WHERE (status = 'verified' OR status = 'Selesai')
+          AND date >= date_trunc('week', NOW())
+          AND COALESCE(actual_weight, 0) > 0
+        GROUP BY DATE(date)
+        ORDER BY dt ASC
+      `;
+    } catch {
+      // Fallback ke skema lama
+      distributionRaw = await sql`
+        SELECT type as name, SUM(weight) as value 
+        FROM transactions 
+        WHERE (status = 'verified' OR status = 'Selesai') 
+          AND date >= date_trunc('month', NOW())
+        GROUP BY type 
+        ORDER BY value DESC
+      `;
+
+      weeklyRaw = await sql`
+        SELECT DATE(date) as dt, SUM(weight) as total 
+        FROM transactions 
+        WHERE (status = 'verified' OR status = 'Selesai')
+          AND date >= date_trunc('week', NOW())
+        GROUP BY DATE(date)
+        ORDER BY dt ASC
+      `;
+    }
 
     // Map distribution to numbers since NUMERIC comes out as string in postgres node drivers
     const distribution = distributionRaw.map(row => ({

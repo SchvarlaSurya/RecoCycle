@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { ArrowDown, Coins, Leaf, Recycle, Sparkles, Truck } from "lucide-react";
 import { getLandingStats } from "@/app/actions/landing";
 import LandingPickupModal from "@/app/components/LandingPickupModal";
 import OpenPickupButton from "@/app/components/OpenPickupButton";
-import { wasteCatalog, categoryLabel } from "@/lib/catalog";
+import RecoCycleBrand from "@/app/components/RecoCycleBrand";
+import { wasteCatalog } from "@/lib/catalog";
 
 interface Stats {
   totalPickups: number;
@@ -13,7 +15,17 @@ interface Stats {
   topWastes: { type: string; total_weight: number }[];
 }
 
-function AnimatedCounter({ target, duration = 2000, suffix = "" }: { target: number; duration?: number; suffix?: string }) {
+function AnimatedCounter({
+  target,
+  duration = 2000,
+  suffix = "",
+  decimals = 0,
+}: {
+  target: number;
+  duration?: number;
+  suffix?: string;
+  decimals?: number;
+}) {
   const [count, setCount] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
   const [hasStarted, setHasStarted] = useState(false);
@@ -21,14 +33,15 @@ function AnimatedCounter({ target, duration = 2000, suffix = "" }: { target: num
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !hasStarted) {
+        if (entries[0]?.isIntersecting && !hasStarted) {
           setHasStarted(true);
         }
       },
       { threshold: 0.3 }
     );
 
-    if (ref.current) observer.observe(ref.current);
+    const node = ref.current;
+    if (node) observer.observe(node);
 
     return () => observer.disconnect();
   }, [hasStarted]);
@@ -36,17 +49,14 @@ function AnimatedCounter({ target, duration = 2000, suffix = "" }: { target: num
   useEffect(() => {
     if (!hasStarted) return;
 
-    let startTime: number;
-    let animationFrame: number;
+    let startTime: number | undefined;
+    let animationFrame = 0;
 
     const animate = (currentTime: number) => {
       if (!startTime) startTime = currentTime;
       const progress = Math.min((currentTime - startTime) / duration, 1);
-
-      // Easing function: easeOutExpo
       const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-
-      setCount(Math.floor(eased * target));
+      setCount(eased * target);
 
       if (progress < 1) {
         animationFrame = requestAnimationFrame(animate);
@@ -55,16 +65,28 @@ function AnimatedCounter({ target, duration = 2000, suffix = "" }: { target: num
 
     animationFrame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrame);
-  }, [target, duration, hasStarted]);
+  }, [duration, hasStarted, target]);
 
   return (
     <span ref={ref}>
-      {count.toLocaleString("id-ID")}{suffix}
+      {count.toLocaleString("id-ID", {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      })}
+      {suffix}
     </span>
   );
 }
 
-function WasteBar({ waste, maxWeight, delay }: { waste: { type: string; total_weight: number }; maxWeight: number; delay: number }) {
+function WasteBar({
+  waste,
+  maxWeight,
+  delay,
+}: {
+  waste: { type: string; total_weight: number };
+  maxWeight: number;
+  delay: number;
+}) {
   const [width, setWidth] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const [hasStarted, setHasStarted] = useState(false);
@@ -72,60 +94,76 @@ function WasteBar({ waste, maxWeight, delay }: { waste: { type: string; total_we
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !hasStarted) {
+        if (entries[0]?.isIntersecting && !hasStarted) {
           setHasStarted(true);
         }
       },
       { threshold: 0.3 }
     );
 
-    if (ref.current) observer.observe(ref.current);
+    const node = ref.current;
+    if (node) observer.observe(node);
     return () => observer.disconnect();
   }, [hasStarted]);
 
   useEffect(() => {
     if (!hasStarted) return;
 
-    const timeout = setTimeout(() => {
+    const timeout = window.setTimeout(() => {
       setWidth((waste.total_weight / maxWeight) * 100);
     }, delay);
 
-    return () => clearTimeout(timeout);
-  }, [hasStarted, waste.total_weight, maxWeight, delay]);
+    return () => window.clearTimeout(timeout);
+  }, [delay, hasStarted, maxWeight, waste.total_weight]);
 
-  const catalogRef = wasteCatalog.find(c => c.name === waste.type) || wasteCatalog[0];
+  const catalogRef = wasteCatalog.find((item) => item.name === waste.type) ?? wasteCatalog[0];
 
   return (
     <div ref={ref} className="group">
-      <div className="flex justify-between items-end mb-2">
-        <span className="font-medium text-stone-800">{waste.type}</span>
-        <span className="text-sm text-stone-600">{(waste.total_weight / 1000).toFixed(1)} ton</span>
+      <div className="mb-2 flex items-end justify-between">
+        <span className="font-medium text-slate-900">{waste.type}</span>
+        <span className="text-sm text-slate-600">{(waste.total_weight / 1000).toFixed(1)} ton</span>
       </div>
-      <div className="h-3 bg-stone-200 rounded-full overflow-hidden">
+      <div className="h-3 overflow-hidden rounded-full bg-white/60">
         <div
-          className="h-full bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-full transition-all duration-1000 ease-out"
+          className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-1000 ease-out"
           style={{ width: `${width}%` }}
         />
       </div>
-      <div className="mt-1 text-xs text-stone-500 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="mt-1 text-xs text-slate-500 opacity-0 transition-opacity group-hover:opacity-100">
         Rp {catalogRef.pricePerKg.toLocaleString("id-ID")} / kg
       </div>
     </div>
   );
 }
 
-function FloatingTrash({ delay, duration, x, type }: { delay: number; duration: number; x: string; type: "bottle" | "paper" | "plastic" }) {
+function FloatingOrb({
+  className,
+  delay,
+}: {
+  className: string;
+  delay: string;
+}) {
   return (
     <div
-      className={`absolute text-4xl opacity-20 animate-float ${x}`}
-      style={{
-        animationDelay: `${delay}s`,
-        animationDuration: `${duration}s`,
-      }}
+      className={`absolute rounded-full blur-3xl ${className}`}
+      style={{ animationDelay: delay }}
+    />
+  );
+}
+
+function GlassPanel({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`rounded-[32px] border border-white/45 bg-white/28 shadow-[0_20px_60px_rgba(15,23,42,0.16)] backdrop-blur-2xl ${className}`}
     >
-      {type === "bottle" && "🫙"}
-      {type === "paper" && "📄"}
-      {type === "plastic" && "🥤"}
+      {children}
     </div>
   );
 }
@@ -145,376 +183,333 @@ export default function StorytellingHome() {
     });
   }, []);
 
-  const displayTopWastes = stats.topWastes.length > 0
-    ? stats.topWastes.slice(0, 5)
-    : wasteCatalog.slice(0, 5).map(w => ({ type: w.name, total_weight: 0 }));
+  const displayTopWastes =
+    stats.topWastes.length > 0
+      ? stats.topWastes.slice(0, 5)
+      : wasteCatalog.slice(0, 5).map((item) => ({ type: item.name, total_weight: 0 }));
 
-  const maxWeight = Math.max(...displayTopWastes.map(w => w.total_weight), 1);
+  const maxWeight = Math.max(...displayTopWastes.map((item) => item.total_weight), 1);
+  const indonesiaWastePerDay = 175000;
+  const recycledPercent = 12;
 
-  // Indonesia waste statistics (based on official data)
-  const indonesiaWastePerDay = 175000; // tons per day
-  const recycledPercent = 12; // only 12% recycled
-  const organicPercent = 41; // organic waste percentage
+  const solutionCards = [
+    {
+      icon: Truck,
+      title: "Pickup Rumah Tangga",
+      desc: "Jadwalkan pickup langsung dari rumah. Tidak perlu repot mengantar ke bank sampah.",
+      stat: "Mudah",
+    },
+    {
+      icon: Coins,
+      title: "Reward Transparan",
+      desc: "Dapat bayaran fair untuk setiap kg sampah terpilah. Saldo masuk langsung ke akun.",
+      stat: "Adil",
+    },
+    {
+      icon: Leaf,
+      title: "Dampak Terukur",
+      desc: "Lacak kontribusi Anda untuk lingkungan. Setiap kg berarti bagi bumi.",
+      stat: "Berkah",
+    },
+  ];
+
+  const steps = [
+    {
+      step: "01",
+      title: "Jadwalkan Pickup",
+      desc: "Pilih jenis sampah dan estimasi berat. Tentukan waktu pickup yang nyaman untuk Anda.",
+    },
+    {
+      step: "02",
+      title: "Kurir Datang & Timbang",
+      desc: "Kurir profesional datang, verifikasi, dan timbang sampah Anda dengan transparan.",
+    },
+    {
+      step: "03",
+      title: "Saldo Masuk",
+      desc: "Reward langsung masuk ke akun. Lacak dampak Anda di dashboard pribadi.",
+    },
+  ];
 
   return (
-    <main className="bg-stone-50 text-stone-900 overflow-x-hidden">
-      {/* Navigation Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-stone-900/90 to-transparent px-4 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white">
-              WB
-            </span>
-            <span className="font-semibold tracking-wide text-white">WasteBank</span>
+    <main className="overflow-x-hidden bg-[#dfeee8] text-slate-900">
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.55),transparent_40%),linear-gradient(180deg,#0f172a_0%,#102d2b_18%,#dfeee8_56%,#edf6f2_100%)]" />
+        <div className="section-grid absolute inset-0 opacity-[0.08]" />
+        <FloatingOrb className="-left-16 top-20 h-72 w-72 bg-emerald-300/35 animate-float-slow" delay="0s" />
+        <FloatingOrb className="right-[-5rem] top-10 h-96 w-96 bg-cyan-300/25 animate-float-slow" delay="1.4s" />
+        <FloatingOrb className="bottom-[-8rem] left-1/3 h-[26rem] w-[26rem] bg-lime-200/30 animate-float-slow" delay="0.7s" />
+      </div>
+
+      <header className="fixed left-0 right-0 top-0 z-50 px-4 py-4">
+        <GlassPanel className="brand-mesh-light mx-auto flex max-w-6xl items-center justify-between bg-white/40 px-5 py-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-3">
+            <RecoCycleBrand size="sm" />
           </Link>
 
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="rounded-full border border-white/30 px-5 py-2 text-sm font-medium text-white hover:bg-white/10 transition-colors"
+              className="rounded-full border border-white/60 bg-white/55 px-5 py-2 text-sm font-medium text-slate-900 transition hover:bg-white/80"
             >
               Masuk
             </Link>
             <Link
               href="/register"
-              className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-500 transition-colors"
+              className="brand-button rounded-full px-5 py-2 text-sm font-semibold text-white transition hover:brightness-105"
             >
               Daftar
             </Link>
           </div>
-        </div>
+        </GlassPanel>
       </header>
 
-      {/* Hero Section - The Problem */}
-      <section className="relative min-h-screen flex items-center justify-center bg-gradient-to-b from-stone-900 via-stone-800 to-stone-700 overflow-hidden">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <FloatingTrash delay={0} duration={15} x="left-[10%]" type="bottle" />
-          <FloatingTrash delay={3} duration={18} x="left-[25%]" type="plastic" />
-          <FloatingTrash delay={5} duration={20} x="left-[45%]" type="paper" />
-          <FloatingTrash delay={2} duration={16} x="left-[60%]" type="bottle" />
-          <FloatingTrash delay={7} duration={22} x="left-[75%]" type="plastic" />
-          <FloatingTrash delay={4} duration={19} x="left-[90%]" type="paper" />
-        </div>
+      <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 pt-28">
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-slate-950/12 to-slate-950/38" />
 
-        {/* Dark overlay gradient */}
-        <div className="absolute inset-0 bg-gradient-to-t from-stone-900/80 via-transparent to-stone-900/50" />
-
-        <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
-          {/* Opening hook */}
-          <p className="text-emerald-400 text-sm sm:text-base font-medium tracking-[0.2em] uppercase mb-6 animate-fade-in">
-            Fakta yang Perlu Kita Sadari
-          </p>
-
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight mb-8">
-            Setiap Hari, Indonesia
-            <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">
-              Menghasilkan {indonesiaWastePerDay.toLocaleString("id-ID")} Ton
-            </span>
-            <br />
-            Sampah
-          </h1>
-
-          <p className="text-lg sm:text-xl text-stone-300 max-w-3xl mx-auto mb-12 leading-relaxed">
-            Bayangkan. Tumpukan sampah setinggi gunung. Mencemari tanah, laut, dan udara yang kita hirup.
-            <br className="hidden sm:block" />
-            <span className="text-emerald-400 font-semibold">Hanya {recycledPercent}%</span> yang berhasil didaur ulang.
-          </p>
-
-          {/* Animated stats cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto">
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-3xl p-6 sm:p-8 transform hover:scale-105 transition-transform duration-300">
-              <div className="text-4xl sm:text-5xl font-bold text-emerald-400 mb-2">
-                {indonesiaWastePerDay.toLocaleString("id-ID")}
+        <div className="relative z-10 mx-auto w-full max-w-6xl">
+          <GlassPanel className="overflow-hidden border-white/30 bg-slate-950/52 px-6 py-10 shadow-[0_24px_80px_rgba(15,23,42,0.3)] sm:px-10 sm:py-12">
+            <div className="brand-mesh-dark absolute inset-0 opacity-90" />
+            <div className="section-grid absolute inset-0 opacity-[0.05]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_28%)]" />
+            <div className="relative text-center">
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/14 px-4 py-2 text-sm font-medium uppercase tracking-[0.2em] text-emerald-50 shadow-[0_10px_25px_rgba(0,0,0,0.16)]">
+                <Sparkles className="h-4 w-4" />
+                Fakta yang Perlu Kita Sadari
               </div>
-              <div className="text-stone-300 text-sm sm:text-base">Ton sampah per hari</div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-3xl p-6 sm:p-8 transform hover:scale-105 transition-transform duration-300">
-              <div className="text-4xl sm:text-5xl font-bold text-amber-400 mb-2">
-                {recycledPercent}%
-              </div>
-              <div className="text-stone-300 text-sm sm:text-base">Yang didaur ulang</div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-3xl p-6 sm:p-8 transform hover:scale-105 transition-transform duration-300">
-              <div className="text-4xl sm:text-5xl font-bold text-rose-400 mb-2">
-                {100 - recycledPercent}%
-              </div>
-              <div className="text-stone-300 text-sm sm:text-base">Terbuang sia-sia</div>
-            </div>
-          </div>
 
-          {/* Scroll indicator */}
-          <div className="mt-16 animate-bounce">
-            <svg className="w-6 h-6 mx-auto text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-            </svg>
-          </div>
+              <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
+                Setiap Hari, Indonesia
+                <br />
+                <span className="bg-gradient-to-r from-emerald-300 to-cyan-200 bg-clip-text text-transparent">
+                  Menghasilkan {indonesiaWastePerDay.toLocaleString("id-ID")} Ton
+                </span>
+                <br />
+                Sampah
+              </h1>
+
+              <p className="mx-auto mt-8 max-w-3xl text-lg leading-relaxed text-white [text-shadow:0_4px_16px_rgba(0,0,0,0.3)] sm:text-xl">
+                Bayangkan. Tumpukan sampah setinggi gunung. Mencemari tanah, laut, dan udara yang kita hirup.
+                <br className="hidden sm:block" />
+                <span className="font-semibold text-emerald-100">Hanya {recycledPercent}%</span> yang berhasil didaur ulang.
+              </p>
+
+              <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
+                <GlassPanel className="brand-mesh-dark border-white/25 bg-slate-950/48 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.2)] sm:p-8">
+                  <div className="text-4xl font-bold text-emerald-300 sm:text-5xl">
+                    {indonesiaWastePerDay.toLocaleString("id-ID")}
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-slate-50 sm:text-base">Ton sampah per hari</div>
+                </GlassPanel>
+                <GlassPanel className="brand-mesh-dark border-white/25 bg-slate-950/48 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.2)] sm:p-8">
+                  <div className="text-4xl font-bold text-amber-300 sm:text-5xl">{recycledPercent}%</div>
+                  <div className="mt-2 text-sm font-semibold text-slate-50 sm:text-base">Yang didaur ulang</div>
+                </GlassPanel>
+                <GlassPanel className="brand-mesh-dark border-white/25 bg-slate-950/48 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.2)] sm:p-8">
+                  <div className="text-4xl font-bold text-rose-300 sm:text-5xl">{100 - recycledPercent}%</div>
+                  <div className="mt-2 text-sm font-semibold text-slate-50 sm:text-base">Terbuang sia-sia</div>
+                </GlassPanel>
+              </div>
+
+              <div className="mt-14 inline-flex animate-bounce items-center justify-center rounded-full border border-white/30 bg-white/10 p-3 text-slate-200">
+                <ArrowDown className="h-5 w-5" />
+              </div>
+            </div>
+          </GlassPanel>
         </div>
       </section>
 
-      {/* The Local Impact Section */}
-      <section className="py-24 px-4 bg-gradient-to-b from-stone-700 to-stone-100">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-emerald-700 text-sm font-medium tracking-[0.2em] uppercase mb-4">
-              Dampak di Sekitar Kita
-            </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-stone-900 mb-6">
-              Sampah Bukan Hanya Angka
-            </h2>
-            <p className="text-lg text-stone-600 max-w-2xl mx-auto">
+      <section className="px-4 py-24">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-16 text-center">
+            <p className="mb-4 text-sm font-medium uppercase tracking-[0.2em] text-emerald-700">Dampak di Sekitar Kita</p>
+            <h2 className="mb-6 text-3xl font-bold text-slate-900 sm:text-4xl md:text-5xl">Sampah Bukan Hanya Angka</h2>
+            <p className="mx-auto max-w-2xl text-lg text-slate-600">
               Setiap ton sampah yang tidak terkelola adalah peluang yang terbuang.
               <br />
               Tapi perubahan dimulai dari langkah kecil.
             </p>
           </div>
 
-          {/* Local community stats */}
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            {/* Left: Impact visualization */}
+          <div className="grid items-center gap-8 md:grid-cols-2">
             <div className="relative">
-              <div className="bg-gradient-to-br from-emerald-600 to-teal-600 rounded-3xl p-8 text-white shadow-2xl">
-                <div className="text-emerald-200 text-sm font-medium mb-2">Kontribusi Komunitas WasteBank</div>
-                <div className="text-5xl sm:text-6xl font-bold mb-4">
-                  <AnimatedCounter target={Math.round(stats.totalTonnageBulanIni * 100) / 100} duration={2500} suffix=" ton" />
-                </div>
-                <div className="text-emerald-100 mb-6">Sampah terpilah bulan ini</div>
-
-                <div className="border-t border-white/20 pt-6">
-                  <div className="flex items-center gap-4">
-                    <div className="text-3xl font-bold">
-                      <AnimatedCounter target={stats.totalPickups} duration={2000} suffix="+" />
-                    </div>
-                    <div className="text-emerald-200 text-sm">Pickup berhasil</div>
+              <GlassPanel className="overflow-hidden bg-gradient-to-br from-emerald-700/80 to-teal-700/70 p-8 text-white">
+                <div className="brand-mesh-dark absolute inset-0" />
+                <div className="relative">
+                  <div className="mb-2 text-sm font-medium text-emerald-100">Kontribusi Komunitas RecoCycle</div>
+                  <div className="mb-4 text-5xl font-bold sm:text-6xl">
+                    <AnimatedCounter target={stats.totalTonnageBulanIni} duration={2500} decimals={2} suffix=" ton" />
                   </div>
+                  <div className="mb-6 text-emerald-100">Sampah terpilah bulan ini</div>
+                  <div className="border-t border-white/20 pt-6">
+                    <div className="flex items-center gap-4">
+                      <div className="text-3xl font-bold">
+                        <AnimatedCounter target={stats.totalPickups} duration={2000} suffix="+" />
+                      </div>
+                      <div className="text-sm text-emerald-100">Pickup berhasil</div>
+                    </div>
+                  </div>
+                </div>
+              </GlassPanel>
+
+              <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-amber-300/35 blur-2xl" />
+              <div className="absolute -bottom-4 -left-4 h-32 w-32 rounded-full bg-emerald-400/25 blur-2xl" />
+            </div>
+
+            <GlassPanel className="brand-mesh-light bg-white/72 p-8">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Sampah Paling Sering Disetor</h3>
+                  <p className="mt-2 text-sm text-slate-500">Data dari komunitas RecoCycle</p>
+                </div>
+                <div className="rounded-2xl bg-emerald-500/12 p-3 text-emerald-700">
+                  <Recycle className="h-5 w-5" />
                 </div>
               </div>
 
-              {/* Decorative elements */}
-              <div className="absolute -top-4 -right-4 w-24 h-24 bg-amber-400/30 rounded-full blur-2xl" />
-              <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-emerald-400/30 rounded-full blur-2xl" />
-            </div>
-
-            {/* Right: Top waste types with animated bars */}
-            <div className="bg-white rounded-3xl p-8 shadow-xl border border-stone-200">
-              <h3 className="text-xl font-bold text-stone-900 mb-2">Sampah Paling Sering Disetor</h3>
-              <p className="text-stone-500 text-sm mb-6">Data dari komunitas WasteBank</p>
-
-              <div className="space-y-6">
-                {displayTopWastes.map((waste, idx) => (
+              <div className="mt-6 space-y-6">
+                {displayTopWastes.map((waste, idx) =>
                   loaded && waste.total_weight > 0 ? (
                     <WasteBar key={waste.type} waste={waste} maxWeight={maxWeight} delay={idx * 200} />
                   ) : (
                     <div key={waste.type} className="opacity-50">
-                      <div className="flex justify-between items-end mb-2">
-                        <span className="font-medium text-stone-800">{waste.type}</span>
-                        <span className="text-sm text-stone-600">Menunggu data</span>
+                      <div className="mb-2 flex items-end justify-between">
+                        <span className="font-medium text-slate-900">{waste.type}</span>
+                        <span className="text-sm text-slate-600">Menunggu data</span>
                       </div>
-                      <div className="h-3 bg-stone-200 rounded-full" />
+                      <div className="h-3 rounded-full bg-white/60" />
                     </div>
                   )
-                ))}
+                )}
               </div>
-            </div>
+            </GlassPanel>
           </div>
         </div>
       </section>
 
-      {/* The Solution Section */}
-      <section className="py-24 px-4 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-emerald-700 text-sm font-medium tracking-[0.2em] uppercase mb-4">
-              Solusi Dimulai Dari Sini
-            </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-stone-900 mb-6">
-              WasteBank: Mengubah Masalah Jadi Berkah
+      <section className="px-4 py-24">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-16 text-center">
+            <p className="mb-4 text-sm font-medium uppercase tracking-[0.2em] text-emerald-700">Solusi Dimulai Dari Sini</p>
+            <h2 className="mb-6 text-3xl font-bold text-slate-900 sm:text-4xl md:text-5xl">
+              RecoCycle: Mengubah Masalah Jadi Berkah
             </h2>
-            <p className="text-lg text-stone-600 max-w-2xl mx-auto">
+            <p className="mx-auto max-w-2xl text-lg text-slate-600">
               Kami percaya sampah bukan sekadar limbah. Sampah adalah sumber daya yang menunggu untuk dikelola dengan benar.
             </p>
           </div>
 
-          {/* Solution cards */}
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                icon: "🏠",
-                title: "Pickup Rumah Tangga",
-                desc: "Jadwalkan pickup langsung dari rumah. Tidak perlu repot mengantar ke bank sampah.",
-                stat: "Mudah",
-              },
-              {
-                icon: "💰",
-                title: "Reward Transparan",
-                desc: "Dapat bayaran fair untuk setiap kg sampah terpilah. Saldo masuk langsung ke akun.",
-                stat: "Adil",
-              },
-              {
-                icon: "🌱",
-                title: "Dampak Terukur",
-                desc: "Lacak kontribusi Anda untuk lingkungan. Setiap kg berarti bagi bumi.",
-                stat: "Berkah",
-              },
-            ].map((card, idx) => (
-              <div
-                key={card.title}
-                className="group relative bg-gradient-to-b from-stone-50 to-white border border-stone-200 rounded-3xl p-8 hover:shadow-2xl hover:border-emerald-200 transition-all duration-300"
+          <div className="grid gap-6 md:grid-cols-3">
+            {solutionCards.map(({ icon: Icon, title, desc, stat }) => (
+              <GlassPanel
+                key={title}
+                className="brand-mesh-light group relative overflow-hidden bg-white/72 p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(15,23,42,0.14)]"
               >
-                <div className="text-5xl mb-4">{card.icon}</div>
-                <h3 className="text-xl font-bold text-stone-900 mb-3">{card.title}</h3>
-                <p className="text-stone-600 leading-relaxed mb-4">{card.desc}</p>
-                <div className="inline-flex items-center gap-2 text-emerald-700 font-semibold">
-                  <span className="px-3 py-1 bg-emerald-100 rounded-full text-sm">{card.stat}</span>
+                <div className="relative">
+                  <div className="mb-4 inline-flex rounded-2xl bg-emerald-500/12 p-4 text-emerald-700">
+                    <Icon className="h-8 w-8" />
+                  </div>
+                  <h3 className="mb-3 text-xl font-bold text-slate-900">{title}</h3>
+                  <p className="mb-4 leading-relaxed text-slate-600">{desc}</p>
+                  <div className="inline-flex items-center gap-2 font-semibold text-emerald-700">
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm">{stat}</span>
+                  </div>
                 </div>
-
-                {/* Hover effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
+              </GlassPanel>
             ))}
           </div>
         </div>
       </section>
 
-      {/* How It Works - Timeline Style */}
-      <section className="py-24 px-4 bg-gradient-to-b from-white to-stone-100">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-emerald-700 text-sm font-medium tracking-[0.2em] uppercase mb-4">
-              Proses Sederhana
-            </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-stone-900">
-              3 Langkah Menuju Perubahan
-            </h2>
+      <section className="px-4 py-24">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-16 text-center">
+            <p className="mb-4 text-sm font-medium uppercase tracking-[0.2em] text-emerald-700">Proses Sederhana</p>
+            <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl md:text-5xl">3 Langkah Menuju Perubahan</h2>
           </div>
 
           <div className="relative">
-            {/* Timeline line */}
-            <div className="absolute left-8 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-emerald-500 via-teal-500 to-emerald-500" />
+            <div className="absolute bottom-0 left-8 top-0 w-0.5 bg-gradient-to-b from-emerald-500 via-teal-500 to-emerald-500 md:left-1/2" />
 
-            {[
-              {
-                step: "01",
-                title: "Jadwalkan Pickup",
-                desc: "Pilih jenis sampah dan estimasi berat. Tentukan waktu pickup yang nyaman untuk Anda.",
-              },
-              {
-                step: "02",
-                title: "Kurir Datang & Timbang",
-                desc: "Kurir profesional datang, verifikasi, dan timbang sampah Anda dengan transparan.",
-              },
-              {
-                step: "03",
-                title: "Saldo Masuk",
-                desc: "Reward langsung masuk ke akun. Lacak dampak Anda di dashboard pribadi.",
-              },
-            ].map((item, idx) => (
+            {steps.map((item, idx) => (
               <div
                 key={item.step}
-                className={`relative flex items-center gap-8 mb-12 last:mb-0 ${
-                  idx % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"
-                }`}
+                className={`relative mb-12 flex items-center gap-8 last:mb-0 ${idx % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"}`}
               >
-                {/* Content */}
-                <div className={`flex-1 ${idx % 2 === 0 ? "md:text-right" : "md:text-left"} pl-20 md:pl-0`}>
-                  <div className={`inline-block bg-white border border-stone-200 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow ${
-                    idx % 2 === 0 ? "md:ml-auto" : "md:mr-auto"
-                  } max-w-sm`}>
-                    <div className="text-emerald-600 text-4xl font-bold mb-2">{item.step}</div>
-                    <h3 className="text-xl font-bold text-stone-900 mb-2">{item.title}</h3>
-                    <p className="text-stone-600 text-sm leading-relaxed">{item.desc}</p>
-                  </div>
+                <div className={`flex-1 pl-20 md:pl-0 ${idx % 2 === 0 ? "md:text-right" : "md:text-left"}`}>
+                  <GlassPanel className={`brand-mesh-light inline-block bg-white/76 p-6 ${idx % 2 === 0 ? "md:ml-auto" : "md:mr-auto"} max-w-sm`}>
+                    <div className="mb-2 text-4xl font-bold text-emerald-600">{item.step}</div>
+                    <h3 className="mb-2 text-xl font-bold text-slate-900">{item.title}</h3>
+                    <p className="text-sm leading-relaxed text-slate-600">{item.desc}</p>
+                  </GlassPanel>
                 </div>
 
-                {/* Center dot */}
-                <div className="absolute left-8 md:left-1/2 w-4 h-4 bg-emerald-500 rounded-full -translate-x-1/2 border-4 border-white shadow" />
-
-                {/* Empty space for other side */}
-                <div className="hidden md:block flex-1" />
+                <div className="absolute left-8 h-4 w-4 -translate-x-1/2 rounded-full border-4 border-white bg-emerald-500 shadow md:left-1/2" />
+                <div className="hidden flex-1 md:block" />
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-24 px-4 bg-gradient-to-br from-emerald-800 via-teal-700 to-emerald-900 relative overflow-hidden">
-        {/* Background decoration */}
-        <div className="absolute top-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-emerald-400/20 rounded-full blur-3xl" />
+      <section className="relative overflow-hidden px-4 py-24">
+        <div className="absolute left-0 top-0 h-64 w-64 rounded-full bg-white/20 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-emerald-400/18 blur-3xl" />
 
-        <div className="relative z-10 max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-6">
-            Siap Jadi Bagian Perubahan?
-          </h2>
-          <p className="text-xl text-emerald-100 mb-10 max-w-2xl mx-auto">
-            Bergabunglah dengan ribuan warga yang sudah mengubah sampah jadi berkah.
-            Mulai hari ini, tanpa biaya pendaftaran.
-          </p>
+        <div className="relative z-10 mx-auto max-w-4xl">
+          <GlassPanel className="overflow-hidden bg-gradient-to-br from-emerald-900/70 via-teal-800/60 to-emerald-950/75 px-6 py-10 text-center sm:px-8">
+            <div className="brand-mesh-dark absolute inset-0" />
+            <div className="section-grid absolute inset-0 opacity-[0.05]" />
+            <div className="relative">
+              <h2 className="mb-6 text-3xl font-bold text-white sm:text-4xl md:text-5xl">Siap Jadi Bagian Perubahan?</h2>
+              <p className="mx-auto mb-10 max-w-2xl text-xl text-emerald-100">
+                Bergabunglah dengan ribuan warga yang sudah mengubah sampah jadi berkah. Mulai hari ini, tanpa biaya
+                pendaftaran.
+              </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <OpenPickupButton className="inline-flex items-center justify-center rounded-full bg-white px-8 py-4 text-base font-semibold text-emerald-900 hover:bg-emerald-50 transition-colors">
-              Jadwalkan Pickup Pertama
-            </OpenPickupButton>
-            <Link
-              href="/register"
-              className="inline-flex items-center justify-center rounded-full border-2 border-white/50 px-8 py-4 text-base font-semibold text-white hover:bg-white/10 transition-colors"
-            >
-              Buat Akun Gratis
-            </Link>
-          </div>
+              <div className="flex flex-col justify-center gap-4 sm:flex-row">
+                <OpenPickupButton className="brand-button inline-flex items-center justify-center rounded-full px-8 py-4 text-base font-semibold text-white transition hover:brightness-105">
+                  Jadwalkan Pickup Pertama
+                </OpenPickupButton>
+                <Link
+                  href="/register"
+                  className="inline-flex items-center justify-center rounded-full border-2 border-white/50 bg-white/10 px-8 py-4 text-base font-semibold text-white transition hover:bg-white/16"
+                >
+                  Buat Akun Gratis
+                </Link>
+              </div>
 
-          <p className="mt-8 text-emerald-200 text-sm">
-            ✓ Tanpa biaya tersembunyi &nbsp;✓ Pickup terjadwal &nbsp;✓ Reward transparan
-          </p>
+              <p className="mt-8 text-sm text-emerald-200">Tanpa biaya tersembunyi • Pickup terjadwal • Reward transparan</p>
+            </div>
+          </GlassPanel>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-stone-200 bg-stone-900 py-10 text-stone-200">
-        <div className="mx-auto flex w-full max-w-6xl flex-col justify-between gap-5 px-4 sm:flex-row sm:items-center sm:px-6">
+      <footer className="px-4 pb-8">
+        <GlassPanel className="brand-mesh-dark mx-auto flex max-w-6xl flex-col justify-between gap-5 bg-slate-950/75 px-4 py-8 text-slate-200 sm:flex-row sm:items-center sm:px-6">
           <div>
-            <p className="text-sm font-medium">WasteBank Indonesia</p>
-            <p className="mt-1 text-sm text-stone-400">Program pengelolaan sampah berbasis layanan jemput kawasan.</p>
+            <p className="text-sm font-medium">RecoCycle Indonesia</p>
+            <p className="mt-1 text-sm text-slate-400">Program pengelolaan sampah berbasis layanan jemput kawasan.</p>
           </div>
-          <div className="text-sm text-stone-400">© 2026 WasteBank. All rights reserved.</div>
-        </div>
+          <div className="text-sm text-slate-400">© 2026 RecoCycle. All rights reserved.</div>
+        </GlassPanel>
       </footer>
 
-      {/* Mounting the global Client form modal */}
       <LandingPickupModal />
 
-      {/* Custom animations */}
       <style jsx global>{`
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0) rotate(0deg);
-            opacity: 0.2;
+        @keyframes float-slow {
+          0%,
+          100% {
+            transform: translateY(0px) scale(1);
           }
           50% {
-            transform: translateY(-30px) rotate(10deg);
-            opacity: 0.3;
+            transform: translateY(-24px) scale(1.04);
           }
         }
 
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .animate-float {
-          animation: float 6s ease-in-out infinite;
-        }
-
-        .animate-fade-in {
-          animation: fade-in 1s ease-out forwards;
+        .animate-float-slow {
+          animation: float-slow 10s ease-in-out infinite;
         }
       `}</style>
     </main>
