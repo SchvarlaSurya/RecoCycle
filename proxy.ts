@@ -19,7 +19,7 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // Admin route protection
+  // Admin route protection - FAIL CLOSED (deny by default on error)
   if (authObj.userId && isAdminRoute(req)) {
     try {
       const client = await clerkClient();
@@ -32,7 +32,9 @@ export default clerkMiddleware(async (auth, req) => {
         return NextResponse.redirect(dashboardUrl);
       }
     } catch (error) {
-      console.error("Error checking admin status:", error);
+      console.error("Admin check failed - denying access:", error);
+      // FAIL CLOSED: deny access on any error (don't allow through)
+      return NextResponse.redirect(new URL("/dashboard", req.url));
     }
   }
 });
