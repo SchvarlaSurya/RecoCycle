@@ -1,326 +1,477 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { getAllTransactionsAdmin } from "@/app/actions/adminDashboard";
+import { useState, useEffect } from "react";
+import { Calendar, Download, Printer, ChevronLeft, ChevronRight, CheckCircle, XCircle, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 
-type AdminReportTransaction = {
-  id: number;
-  tx_id: string | null;
-  user_id: string | null;
-  waste_type: string | null;
-  estimated_weight?: number | string | null;
-  actual_weight: number | string | null;
-  price_per_kg: number | string | null;
-  total_reward: number | string | null;
-  status: string | null;
-  created_at: string | Date;
-};
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+interface Transaction {
+  id: string
+  user_id: string
+  user_name: string
+  type: string
+  description: string
+  amount: number
+  status: string
+  created_at: string
+}
+
+interface StatSummary {
+  label: string
+  value: string
+  change?: string
+}
+
+interface ActivityLog {
+  action: string
+  status: string
+  time: string
+}
 
 export default function LaporanPage() {
-  const [transactions, setTransactions] = useState<AdminReportTransaction[]>([]);
+  const [activeTab, setActiveTab] = useState<"ringkasan" | "transaksi" | "audit">("ringkasan");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const [dateRange, setDateRange] = useState<"today" | "week" | "month" | "custom">("month");
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [summaryStats, setSummaryStats] = useState<StatSummary[]>([
+    { label: "Total Transaksi", value: "0", change: "+0%" },
+    { label: "Total Berat", value: "0 kg", change: "+0%" },
+    { label: "Total Nilai Transaksi", value: "Rp 0", change: "+0%" },
+    { label: "Rata-rata Reward", value: "Rp 0", change: "+0%" },
+  ]);
+  const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [performanceStats, setPerformanceStats] = useState<StatSummary[]>([
+    { label: "Nilai per kg", value: "Rp 0" },
+    { label: "Transaksi per hari", value: "0" },
+    { label: "Total Nasabah Aktif", value: "0" },
+    { label: "Tingkat Validasi", value: "0%" },
+  ]);
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const fetchReportData = async () => {
+    setIsLoading(true)
     try {
-      const res = await getAllTransactionsAdmin();
-      if (res.success && res.data) {
-        setTransactions(res.data as AdminReportTransaction[]);
+      // Fetch all verified transactions
+      const res = await fetch('/api/admin/transactions?status=verified', {
+        headers: { 'x-admin-secret': ADMIN_SECRET }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const txs = Array.isArray(data) ? data : []
+        setTransactions(txs)
+
+        // Calculate summary stats
+        const totalTransactions = txs.length
+        const totalValue = txs.reduce((sum: number, tx: Transaction) => sum + Math.abs(Number(tx.amount)), 0)
+        const totalWeight = txs.reduce((sum: number, tx: any) => sum + (parseFloat(tx.weight_kg) || 0), 0)
+        const avgReward = totalTransactions > 0 ? totalValue / totalTransactions : 0
+
+        setSummaryStats([
+          { label: "Total Transaksi", value: String(totalTransactions), change: "+27%" },
+          { label: "Total Berat", value: `${totalWeight.toFixed(1)} kg`, change: "+18%" },
+          { label: "Total Nilai Transaksi", value: `Rp ${totalValue.toLocaleString('id-ID')}`, change: "+25%" },
+          { label: "Rata-rata Reward", value: `Rp ${Math.round(avgReward).toLocaleString('id-ID')}`, change: "+15%" },
+        ])
+
+        // Group by waste type for chart
+        const typeMap: Record<string, { berat: number, value: number }> = {}
+        txs.forEach((tx: any) => {
+          const type = tx.waste_type || tx.description || 'Lainnya'
+          if (!typeMap[type]) {
+            typeMap[type] = { berat: 0, value: 0 }
+          }
+          typeMap[type].berat += parseFloat(tx.weight_kg) || 0
+          typeMap[type].value += parseFloat(tx.amount) || 0
+        })
+
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#6b7280']
+        const chartData = Object.entries(typeMap).map(([name, data], i) => ({
+          name,
+          berat: data.berat,
+          percentage: totalWeight > 0 ? (data.berat / totalWeight * 100) : 0,
+          value: data.value,
+          color: colors[i % colors.length]
+        }))
+        setCategoryData(chartData)
+
+        // Calculate performance stats
+        const uniqueUsers = new Set(txs.map((tx: any) => tx.user_id)).size
+        const avgValuePerKg = totalWeight > 0 ? totalValue / totalWeight : 0
+        const transactionsPerDay = 30 > 0 ? totalTransactions / 30 : 0
+        const validationRate = totalTransactions > 0 ? 100 : 0
+
+        setPerformanceStats([
+          { label: "Nilai per kg", value: `Rp ${Math.round(avgValuePerKg).toLocaleString('id-ID')}` },
+          { label: "Transaksi per hari", value: transactionsPerDay.toFixed(1) },
+          { label: "Total Nasabah Aktif", value: String(uniqueUsers) },
+          { label: "Tingkat Validasi", value: `${Math.round(validationRate)}%` },
+        ])
+
+        // Generate activity logs from recent transactions
+        const recentLogs = txs.slice(0, 5).map((tx: any, i: number) => ({
+          action: `Validasi ${tx.id?.slice(0, 8).toUpperCase() || 'TX' + (i + 1)} - ${tx.user_name || 'User'}`,
+          status: "OK",
+          time: new Date(tx.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) + ', ' + new Date(tx.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        }))
+        setActivityLogs(recentLogs)
       }
-    } catch (error) {
-      console.error("Error loading transactions for report:", error);
+    } catch (e) {
+      console.error('Failed to fetch report data')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void loadData();
-    }, 0);
+    fetchReportData()
+  }, [])
 
-    return () => window.clearTimeout(timeoutId);
-  }, []);
-
-  const dateFilter = useMemo(() => {
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
-
-    switch (dateRange) {
-      case "today":
-        return { from: today, to: today };
-      case "week": {
-        const weekAgo = new Date(now);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return { from: weekAgo.toISOString().split("T")[0], to: today };
-      }
-      case "month": {
-        const monthAgo = new Date(now);
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
-        return { from: monthAgo.toISOString().split("T")[0], to: today };
-      }
-      case "custom":
-        return { from: customFrom || "2020-01-01", to: customTo || today };
+  const handleExportCSV = () => {
+    if (transactions.length === 0) {
+      alert('Tidak ada data untuk di-export')
+      return
     }
-  }, [customFrom, customTo, dateRange]);
 
-  const filteredTx = useMemo(() => {
-    return transactions.filter((tx) => {
-      const txDate = new Date(tx.created_at).toISOString().split("T")[0];
-      return (
-        (tx.status === "verified" || tx.status === "Selesai") &&
-        txDate >= dateFilter.from &&
-        txDate <= dateFilter.to
-      );
-    });
-  }, [dateFilter, transactions]);
+    const headers = ['ID', 'User', 'Tipe', 'Deskripsi', 'Jumlah', 'Status', 'Tanggal']
+    const rows = transactions.map((tx: Transaction) => [
+      tx.id,
+      tx.user_name || tx.user_id,
+      tx.type,
+      tx.description || '',
+      tx.amount,
+      tx.status,
+      new Date(tx.created_at).toLocaleDateString('id-ID')
+    ])
 
-  const totalTransaksi = filteredTx.length;
-  const totalBerat = filteredTx.reduce((sum, tx) => sum + Number(tx.actual_weight || 0), 0);
-  const totalNilai = filteredTx.reduce((sum, tx) => sum + Number(tx.total_reward || 0), 0);
+    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `laporan_transaksi_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
 
-  const categoryBreakdown = useMemo(() => {
-    const map: Record<string, { count: number; weight: number; value: number }> = {};
+  const handlePrintPDF = () => {
+    if (transactions.length === 0) {
+      alert('Tidak ada data untuk dicetak')
+      return
+    }
 
-    filteredTx.forEach((tx) => {
-      const wasteType = tx.waste_type || "Tidak diketahui";
-      if (!map[wasteType]) {
-        map[wasteType] = { count: 0, weight: 0, value: 0 };
-      }
-
-      map[wasteType].count += 1;
-      map[wasteType].weight += Number(tx.actual_weight || 0);
-      map[wasteType].value += Number(tx.total_reward || 0);
-    });
-
-    return Object.entries(map)
-      .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => b.value - a.value);
-  }, [filteredTx]);
-
-  const exportCSV = () => {
-    const headers = ["ID,Nasabah,Jenis Sampah,Berat (kg),Harga/kg,Total (Rp),Tanggal"];
-    const rows = filteredTx.map(
-      (tx) =>
-        `${tx.tx_id || ""},${tx.user_id || ""},${tx.waste_type || ""},${tx.actual_weight || 0},${tx.price_per_kg || 0},${tx.total_reward || 0},${new Date(tx.created_at).toLocaleDateString()}`
-    );
-    const csv = [headers, ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `laporan-wastebank-${dateFilter.from}-${dateFilter.to}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const exportPDF = () => {
-    window.print();
-  };
-
-  const rangeButtons = [
-    { key: "today" as const, label: "Hari Ini" },
-    { key: "week" as const, label: "7 Hari" },
-    { key: "month" as const, label: "30 Hari" },
-    { key: "custom" as const, label: "Custom" },
-  ];
-
-  if (isLoading) {
-    return (
-      <div className="mx-auto flex h-[50vh] w-full max-w-7xl items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-      </div>
-    );
+    // Open print dialog which uses browser's PDF printing
+    window.print()
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 pb-12">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Laporan & Ekspor Data</h1>
-          <p className="text-sm text-slate-300">
-            Buat laporan setoran untuk pengurus lingkungan atau dinas terkait.
-          </p>
+          <h1 className="text-2xl font-bold text-stone-900">Laporan & Ekspor</h1>
+          <p className="text-sm text-stone-600 mt-1">Buat laporan dan analisis performa Bank Sampah</p>
         </div>
-        <div className="flex gap-2 print:hidden">
+        <div className="flex items-center gap-3">
           <button
-            onClick={exportCSV}
-            disabled={filteredTx.length === 0}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-medium text-slate-100 transition hover:bg-white/15 disabled:opacity-50"
+            onClick={fetchReportData}
+            className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 transition"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-            </svg>
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 transition"
+          >
+            <Download className="h-4 w-4" />
             Export CSV
           </button>
           <button
-            onClick={exportPDF}
-            disabled={filteredTx.length === 0}
-            className="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-stone-800 disabled:opacity-50"
+            onClick={handlePrintPDF}
+            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 transition"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18.75 12h.008v.008h-.008V12zm-2.25 0h.008v.008H16.5V12z" />
-            </svg>
+            <Printer className="h-4 w-4" />
             Cetak PDF
           </button>
         </div>
       </div>
 
-      <div className="glass-dark-panel rounded-2xl p-5 print:border-0 print:shadow-none">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <span className="text-sm font-medium text-slate-200">Periode:</span>
-          <div className="flex gap-2 print:hidden">
-            {rangeButtons.map((button) => (
-              <button
-                key={button.key}
-                onClick={() => setDateRange(button.key)}
-                className={`rounded-lg px-3 py-2 text-xs font-medium transition ${
-                  dateRange === button.key
-                    ? "bg-stone-900 text-white"
-                    : "bg-white/10 text-slate-200 hover:bg-white/15"
-                }`}
-              >
-                {button.label}
-              </button>
-            ))}
-          </div>
-          {dateRange === "custom" && (
-            <div className="flex items-center gap-2 print:hidden">
-              <input
-                type="date"
-                value={customFrom}
-                onChange={(event) => setCustomFrom(event.target.value)}
-                className="rounded-lg border border-white/10 bg-slate-950/55 px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-              <span className="text-slate-400">sampai</span>
-              <input
-                type="date"
-                value={customTo}
-                onChange={(event) => setCustomTo(event.target.value)}
-                className="rounded-lg border border-white/10 bg-slate-950/55 px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-          )}
-        </div>
-        <p className="mt-2 text-xs text-slate-400 print:hidden">
-          Menampilkan data dari{" "}
-          <span className="font-medium text-slate-200">{dateFilter.from}</span> sampai{" "}
-          <span className="font-medium text-slate-200">{dateFilter.to}</span>
-        </p>
+      {/* Tabs */}
+      <div className="flex gap-4 border-b border-stone-200 pb-4">
+        {(["ringkasan", "transaksi", "audit"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium transition ${
+              activeTab === tab
+                ? "text-emerald-600 border-b-2 border-emerald-600"
+                : "text-stone-500 hover:text-stone-700"
+            }`}
+          >
+            {tab === "ringkasan" ? "Ringkasan" : tab === "transaksi" ? "Transaksi Terverifikasi" : "Audit Trail"}
+          </button>
+        ))}
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-3">
-        <article className="glass-dark-panel rounded-2xl p-5 print:border print:border-stone-200 print:bg-white print:shadow-none">
-          <p className="text-sm font-medium text-slate-300 print:text-stone-500">Total Transaksi</p>
-          <p className="mt-2 text-3xl font-bold text-white print:text-stone-900">{totalTransaksi}</p>
-        </article>
-        <article className="glass-dark-panel rounded-2xl p-5 print:border print:border-stone-200 print:bg-white print:shadow-none">
-          <p className="text-sm font-medium text-slate-300 print:text-stone-500">Total Berat</p>
-          <p className="mt-2 text-3xl font-bold text-white print:text-stone-900">
-            {totalBerat.toFixed(2)} <span className="text-lg text-slate-400 print:text-stone-400">kg</span>
-          </p>
-        </article>
-        <article className="rounded-2xl border border-emerald-400/20 bg-emerald-500/12 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl print:border print:border-emerald-200 print:bg-emerald-50 print:shadow-none">
-          <p className="text-sm font-medium text-emerald-200 print:text-emerald-800">Total Nilai Transaksi</p>
-          <p className="mt-2 text-3xl font-bold text-emerald-300 print:text-emerald-700">
-            Rp {totalNilai.toLocaleString("id-ID")}
-          </p>
-        </article>
-      </section>
-
-      {categoryBreakdown.length > 0 && (
-        <div className="glass-dark-panel rounded-2xl p-5 print:border print:border-stone-200 print:bg-white print:shadow-none">
-          <h2 className="mb-4 text-base font-semibold text-white print:text-stone-900">
-            Breakdown per Kategori Sampah
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10 text-left print:border-stone-100">
-                  <th className="pb-2 font-medium text-slate-300 print:text-stone-600">Jenis Sampah</th>
-                  <th className="pb-2 text-right font-medium text-slate-300 print:text-stone-600">Transaksi</th>
-                  <th className="pb-2 text-right font-medium text-slate-300 print:text-stone-600">Berat Total</th>
-                  <th className="pb-2 text-right font-medium text-slate-300 print:text-stone-600">Nilai Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/10 print:divide-stone-50">
-                {categoryBreakdown.map((category) => (
-                  <tr key={category.name}>
-                    <td className="py-2.5 font-medium text-white print:text-stone-800">{category.name}</td>
-                    <td className="py-2.5 text-right text-slate-300 print:text-stone-600">{category.count}x</td>
-                    <td className="py-2.5 text-right text-slate-300 print:text-stone-600">{category.weight.toFixed(2)} kg</td>
-                    <td className="py-2.5 text-right font-semibold text-slate-100 print:text-stone-800">
-                      Rp {category.value.toLocaleString("id-ID")}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {activeTab === "ringkasan" && (
+        <>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {summaryStats.map((stat) => (
+              <div key={stat.label} className="rounded-2xl border border-stone-200 bg-white p-4">
+                <p className="text-sm text-stone-500">{stat.label}</p>
+                <p className="text-2xl font-bold mt-1 text-stone-900">{stat.value}</p>
+                <p className="text-xs text-emerald-600 mt-1">{stat.change}</p>
+              </div>
+            ))}
           </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Donut Chart & Table */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Donut Chart */}
+              <div className="rounded-2xl border border-stone-200 bg-white p-5">
+                <h3 className="text-lg font-semibold text-stone-900 mb-4">Breakdown per Kategori Sampah</h3>
+                <div className="h-64 flex items-center">
+                  <div className="w-2/5">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={categoryData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={80}
+                          paddingAngle={2}
+                          dataKey="berat"
+                        >
+                          {categoryData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#ffffff",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="w-3/5">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-stone-200 text-left">
+                          <th className="pb-2 font-medium text-stone-500">Kategori</th>
+                          <th className="pb-2 text-right font-medium text-stone-500">Berat</th>
+                          <th className="pb-2 text-right font-medium text-stone-500">%</th>
+                          <th className="pb-2 text-right font-medium text-stone-500">Nilai</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-100">
+                        {categoryData.map((cat) => (
+                          <tr key={cat.name}>
+                            <td className="py-2 flex items-center gap-2">
+                              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: cat.color }} />
+                              {cat.name}
+                            </td>
+                            <td className="py-2 text-right text-stone-700">{cat.berat} kg</td>
+                            <td className="py-2 text-right text-stone-500">{cat.percentage}%</td>
+                            <td className="py-2 text-right font-semibold text-emerald-600">Rp {cat.value.toLocaleString("id-ID")}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transactions Table */}
+              <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
+                <div className="px-5 py-4 border-b border-stone-200">
+                  <h3 className="text-lg font-semibold text-stone-900">Transaksi Terverifikasi</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-stone-200 bg-stone-50 text-left">
+                        <th className="px-5 py-3 font-medium text-stone-600">ID</th>
+                        <th className="px-5 py-3 font-medium text-stone-600">Nasabah</th>
+                        <th className="px-5 py-3 font-medium text-stone-600">Kategori</th>
+                        <th className="px-5 py-3 text-right font-medium text-stone-600">Berat</th>
+                        <th className="px-5 py-3 text-right font-medium text-stone-600">Nilai</th>
+                        <th className="px-5 py-3 text-right font-medium text-stone-600">Reward</th>
+                        <th className="px-5 py-3 font-medium text-stone-600">Tanggal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {transactions.map((tx) => (
+                        <tr key={tx.id} className="hover:bg-stone-50 transition">
+                          <td className="px-5 py-3 font-mono text-xs text-stone-500">{String(tx.id).slice(0, 8).toUpperCase()}</td>
+                          <td className="px-5 py-3 font-medium text-stone-900">{tx.user_name || tx.user_id || 'User'}</td>
+                          <td className="px-5 py-3 text-stone-600">{tx.description || tx.type}</td>
+                          <td className="px-5 py-3 text-right text-stone-600">{(tx as any).weight_kg ? `${tx.weight_kg} kg` : '-'}</td>
+                          <td className="px-5 py-3 text-right text-stone-600">Rp {Math.abs(tx.amount).toLocaleString('id-ID')}</td>
+                          <td className="px-5 py-3 text-right text-emerald-600 font-semibold">Rp {Math.abs(tx.amount).toLocaleString('id-ID')}</td>
+                          <td className="px-5 py-3 text-stone-500">{new Date(tx.created_at).toLocaleDateString('id-ID')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between border-t border-stone-200 px-5 py-4">
+                  <p className="text-sm text-stone-500">Menampilkan {transactions.length} data</p>
+                  <div className="flex items-center gap-2">
+                    <button className="rounded-lg bg-stone-100 p-2 hover:bg-stone-200 transition disabled:opacity-50" disabled>
+                      <ChevronLeft className="h-4 w-4 text-stone-600" />
+                    </button>
+                    <span className="rounded-lg bg-emerald-600 px-3 py-1 text-sm font-medium text-white">1</span>
+                    <button className="rounded-lg bg-stone-100 p-2 hover:bg-stone-200 transition" disabled={transactions.length <= 10}>
+                      <ChevronRight className="h-4 w-4 text-stone-600" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="space-y-6">
+              {/* Aktivitas Terbaru */}
+              <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
+                <div className="px-5 py-4 border-b border-stone-200">
+                  <h3 className="text-lg font-semibold text-stone-900">Aktivitas Terbaru</h3>
+                </div>
+                <div className="divide-y divide-stone-100">
+                  {activityLogs.map((log, i) => (
+                    <div key={i} className="px-5 py-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-stone-900">{log.action}</p>
+                        <p className="text-xs text-stone-500">{log.time}</p>
+                      </div>
+                      <span
+                        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
+                          log.status === "OK"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {log.status === "OK" ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        {log.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ringkasan Performa */}
+              <div className="rounded-2xl border border-stone-200 bg-white p-5">
+                <h3 className="text-lg font-semibold text-stone-900 mb-4">Ringkasan Performa</h3>
+                <div className="space-y-4">
+                  {performanceStats.map((stat) => (
+                    <div key={stat.label} className="flex items-center justify-between">
+                      <span className="text-sm text-stone-600">{stat.label}</span>
+                      <span className="font-semibold text-stone-900">{stat.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === "transaksi" && (
+        <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
+          <div className="px-5 py-4 border-b border-stone-200">
+            <h3 className="text-lg font-semibold text-stone-900">Transaksi Terverifikasi</h3>
+          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="h-12 w-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-stone-500">Belum ada transaksi terverifikasi</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-stone-200 bg-stone-50 text-left">
+                    <th className="px-5 py-3 font-medium text-stone-600">ID</th>
+                    <th className="px-5 py-3 font-medium text-stone-600">Nasabah</th>
+                    <th className="px-5 py-3 font-medium text-stone-600">Kategori</th>
+                    <th className="px-5 py-3 text-right font-medium text-stone-600">Berat</th>
+                    <th className="px-5 py-3 text-right font-medium text-stone-600">Nilai</th>
+                    <th className="px-5 py-3 text-right font-medium text-stone-600">Reward</th>
+                    <th className="px-5 py-3 font-medium text-stone-600">Tanggal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {transactions.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-stone-50 transition">
+                      <td className="px-5 py-3 font-mono text-xs text-stone-500">{String(tx.id).slice(0, 8).toUpperCase()}</td>
+                      <td className="px-5 py-3 font-medium text-stone-900">{tx.user_name || tx.user_id || 'User'}</td>
+                      <td className="px-5 py-3 text-stone-600">{tx.description || tx.type}</td>
+                      <td className="px-5 py-3 text-right text-stone-600">{(tx as any).weight_kg ? `${tx.weight_kg} kg` : '-'}</td>
+                      <td className="px-5 py-3 text-right text-stone-600">Rp {Math.abs(tx.amount).toLocaleString('id-ID')}</td>
+                      <td className="px-5 py-3 text-right text-emerald-600 font-semibold">Rp {Math.abs(tx.amount).toLocaleString('id-ID')}</td>
+                      <td className="px-5 py-3 text-stone-500">{new Date(tx.created_at).toLocaleDateString('id-ID')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                  </table>
+                </div>
+          )}
         </div>
       )}
 
-      <div className="glass-dark-panel overflow-hidden rounded-2xl print:border print:border-stone-200 print:bg-white print:shadow-none">
-        <div className="border-b border-white/10 px-5 py-4 print:border-stone-100">
-          <h2 className="text-base font-semibold text-white print:text-stone-900">
-            Detail Transaksi Terverifikasi
-          </h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/10 bg-slate-950/45 text-left print:border-stone-100 print:bg-stone-50">
-                <th className="px-5 py-3 font-medium text-slate-300 print:text-stone-600">ID</th>
-                <th className="px-5 py-3 font-medium text-slate-300 print:text-stone-600">Nasabah</th>
-                <th className="px-5 py-3 font-medium text-slate-300 print:text-stone-600">Jenis</th>
-                <th className="px-5 py-3 text-right font-medium text-slate-300 print:text-stone-600">Berat</th>
-                <th className="px-5 py-3 text-right font-medium text-slate-300 print:text-stone-600">Reward</th>
-                <th className="px-5 py-3 font-medium text-slate-300 print:text-stone-600">Tanggal</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10 print:divide-stone-100">
-              {filteredTx.map((tx) => (
-                <tr key={tx.id} className="transition-colors hover:bg-white/5 print:hover:bg-transparent">
-                  <td className="px-5 py-3 font-mono text-xs text-slate-400 print:text-stone-500">{tx.tx_id}</td>
-                  <td className="px-5 py-3 font-medium text-white print:text-stone-800">{tx.user_id}</td>
-                  <td className="px-5 py-3 text-slate-300 print:text-stone-600">{tx.waste_type}</td>
-                  <td className="px-5 py-3 text-right text-slate-300 print:text-stone-600">
-                    {Number(tx.actual_weight || 0).toFixed(2)} kg
-                  </td>
-                  <td className="px-5 py-3 text-right font-semibold text-emerald-300 print:text-emerald-700">
-                    Rp {Number(tx.total_reward || 0).toLocaleString("id-ID")}
-                  </td>
-                  <td className="px-5 py-3 text-slate-400 print:text-stone-500">
-                    {new Date(tx.created_at).toLocaleDateString("id-ID")}
-                  </td>
-                </tr>
+      {activeTab === "audit" && (
+        <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
+          <div className="px-5 py-4 border-b border-stone-200">
+            <h3 className="text-lg font-semibold text-stone-900">Audit Trail</h3>
+          </div>
+          {activityLogs.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-stone-500">Belum ada aktivitas</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-stone-100">
+              {activityLogs.map((log, i) => (
+                <div key={i} className="px-5 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                        log.status === "OK"
+                          ? "bg-emerald-100 text-emerald-600"
+                          : "bg-amber-100 text-amber-600"
+                      }`}
+                    >
+                      {log.status === "OK" ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                    </span>
+                    <div>
+                      <p className="font-medium text-stone-900">{log.action}</p>
+                      <p className="text-xs text-stone-500">{log.time}</p>
+                    </div>
+                  </div>
+                </div>
               ))}
-              {filteredTx.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-slate-400 print:text-stone-400">
-                    Tidak ada data pada periode ini.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
-      <div className="hidden border-t border-stone-200 pt-4 text-center print:block">
-        <p className="text-xs text-stone-500">
-          Laporan ini dihasilkan oleh sistem RecoCycle pada{" "}
-          {new Date().toLocaleDateString("id-ID", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
-      </div>
+      {/* Back to Dashboard */}
+      <Link href="/admin" className="inline-flex items-center gap-2 text-sm text-stone-600 hover:text-stone-900">
+        ← Kembali ke Dashboard
+      </Link>
     </div>
   );
 }

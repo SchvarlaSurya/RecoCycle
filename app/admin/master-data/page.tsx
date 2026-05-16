@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { categoryLabel, type WasteCategory } from "@/lib/types";
 import { getWasteCatalogAdmin, updateWastePrice, addWasteCategory } from "@/app/actions/adminDashboard";
+import Link from "next/link";
 
 type WasteCatalogItem = {
   id: string;
@@ -81,64 +82,69 @@ export default function MasterDataPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto w-full max-w-7xl flex h-[50vh] items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 pb-12">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Master Data & Harga</h1>
-          <p className="text-sm text-slate-300">Kelola kategori sampah dan update harga per kg. Harga otomatis terhubung ke sisi nasabah.</p>
+          <h1 className="text-2xl font-bold text-stone-900">Master Data & Harga</h1>
+          <p className="text-sm text-stone-600 mt-1">Kelola kategori sampah dan update harga per kg. Harga otomatis terhubung ke sisi nasabah.</p>
         </div>
-        <button
-          onClick={() => setShowAdd(!showAdd)}
-          className="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-stone-800 transition"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          Tambah Kategori
-        </button>
+        <div className="flex gap-3">
+          <Link href="/admin" className="px-4 py-2 rounded-xl border border-stone-200 bg-white text-sm hover:bg-stone-50 transition">
+            ← Dashboard
+          </Link>
+          <button
+            onClick={() => setShowAdd(!showAdd)}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-500 transition"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Tambah Kategori
+          </button>
+        </div>
       </div>
 
       {/* Info Banner */}
-      <div className="glass-dark-panel flex items-start gap-3 rounded-xl p-4">
-        <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-cyan-300" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+      <div className="flex items-start gap-3 rounded-2xl border border-stone-200 bg-white p-4">
+        <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
         </svg>
         <div>
-          <p className="text-sm font-medium text-white">Harga terhubung otomatis</p>
-          <p className="mt-0.5 text-xs text-slate-300">Setiap perubahan harga akan langsung berlaku di semua perhitungan setoran nasabah. Perubahan dicatat di Log Aktivitas.</p>
+          <p className="text-sm font-medium text-stone-900">Harga terhubung otomatis</p>
+          <p className="mt-0.5 text-xs text-stone-500">Setiap perubahan harga akan langsung berlaku di semua perhitungan setoran nasabah. Perubahan dicatat di Log Aktivitas.</p>
         </div>
       </div>
 
       {/* Add Form */}
       {showAdd && (
-        <div className="glass-dark-panel space-y-4 rounded-2xl p-5">
-          <h3 className="font-semibold text-white">Tambah Kategori Baru</h3>
+        <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5">
+          <h3 className="font-semibold text-stone-900">Tambah Kategori Baru</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <label className="mb-1 block text-xs font-medium text-slate-200">Nama Jenis Sampah</label>
+              <label className="mb-1 block text-xs font-medium text-stone-700">Nama Jenis Sampah</label>
               <input
                 type="text"
                 placeholder="contoh: Styrofoam Bersih"
                 value={newItem.name}
                 onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                className="w-full rounded-xl border border-white/10 bg-slate-950/55 px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-900 outline-none placeholder:text-stone-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                 disabled={isProcessing}
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-200">Kategori</label>
+              <label className="mb-1 block text-xs font-medium text-stone-700">Kategori</label>
               <select
                 value={newItem.category}
                 onChange={(e) => setNewItem({ ...newItem, category: e.target.value as WasteCategory })}
-                className="w-full rounded-xl border border-white/10 bg-slate-950/55 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                 disabled={isProcessing}
               >
                 <option value="anorganik">Anorganik</option>
@@ -147,14 +153,14 @@ export default function MasterDataPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-200">Harga per kg (Rp)</label>
+              <label className="mb-1 block text-xs font-medium text-stone-700">Harga per kg (Rp)</label>
               <input
                 type="number"
                 min="0"
                 placeholder="5000"
                 value={newItem.pricePerKg}
                 onChange={(e) => setNewItem({ ...newItem, pricePerKg: e.target.value })}
-                className="w-full rounded-xl border border-white/10 bg-slate-950/55 px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-900 outline-none placeholder:text-stone-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                 disabled={isProcessing}
               />
             </div>
@@ -163,14 +169,14 @@ export default function MasterDataPage() {
             <button
               onClick={handleAdd}
               disabled={!newItem.name || !newItem.pricePerKg || isProcessing}
-              className="rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50 transition"
+              className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 transition"
             >
               {isProcessing ? "Menyimpan..." : "Simpan"}
             </button>
             <button
               onClick={() => setShowAdd(false)}
               disabled={isProcessing}
-              className="rounded-xl border border-white/10 bg-white/10 px-5 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/15 transition"
+              className="rounded-xl border border-stone-200 bg-white px-5 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-50 transition"
             >
               Batal
             </button>
@@ -179,29 +185,29 @@ export default function MasterDataPage() {
       )}
 
       {/* Table */}
-      <div className="glass-dark-panel overflow-hidden rounded-2xl">
+      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/10 bg-slate-950/45 text-left">
-                <th className="px-5 py-3 font-medium text-slate-300">Jenis Sampah</th>
-                <th className="px-5 py-3 font-medium text-slate-300">Kategori</th>
-                <th className="px-5 py-3 font-medium text-slate-300">Harga / kg</th>
-                <th className="hidden px-5 py-3 font-medium text-slate-300 sm:table-cell">Terakhir Update</th>
-                <th className="px-5 py-3 text-right font-medium text-slate-300">Aksi</th>
+              <tr className="border-b border-stone-200 bg-stone-50 text-left">
+                <th className="px-5 py-3 font-medium text-stone-600">Jenis Sampah</th>
+                <th className="px-5 py-3 font-medium text-stone-600">Kategori</th>
+                <th className="px-5 py-3 font-medium text-stone-600">Harga / kg</th>
+                <th className="hidden px-5 py-3 font-medium text-stone-600 sm:table-cell">Terakhir Update</th>
+                <th className="px-5 py-3 text-right font-medium text-stone-600">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/10">
+            <tbody className="divide-y divide-stone-100">
               {wasteCatalog.map((item) => (
-                <tr key={item.id} className="transition-colors hover:bg-white/5">
+                <tr key={item.id} className="transition-colors hover:bg-stone-50">
                   <td className="px-5 py-3.5">
-                    <p className="font-medium text-white">{item.name}</p>
+                    <p className="font-medium text-stone-900">{item.name}</p>
                   </td>
                   <td className="px-5 py-3.5">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                      item.category === "anorganik" ? "bg-blue-100 text-blue-800" :
-                      item.category === "organik" ? "bg-green-100 text-green-800" :
-                      "bg-purple-100 text-purple-800"
+                      item.category === "anorganik" ? "bg-blue-100 text-blue-700" :
+                      item.category === "organik" ? "bg-green-100 text-green-700" :
+                      "bg-purple-100 text-purple-700"
                     }`}>
                       {categoryLabel[item.category as WasteCategory] || item.category}
                     </span>
@@ -209,14 +215,14 @@ export default function MasterDataPage() {
                   <td className="px-5 py-3.5">
                     {editingId === item.id ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-400">Rp</span>
+                        <span className="text-xs text-stone-500">Rp</span>
                         <input
                           type="number"
                           autoFocus
                           value={editPrice}
                           onChange={(e) => setEditPrice(e.target.value)}
                           onKeyDown={(e) => e.key === "Enter" && handleSavePrice(item.id)}
-                          className="w-24 rounded-lg border border-emerald-400/50 bg-slate-950/55 px-2 py-1.5 text-sm text-white outline-none focus:ring-1 focus:ring-emerald-500"
+                          className="w-24 rounded-lg border border-emerald-300 bg-white px-2 py-1.5 text-sm text-stone-900 outline-none focus:ring-1 focus:ring-emerald-500"
                           disabled={isProcessing}
                         />
                         <button onClick={() => handleSavePrice(item.id)} className="text-emerald-600 hover:text-emerald-800" disabled={isProcessing}>
@@ -232,19 +238,19 @@ export default function MasterDataPage() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-white">Rp {Number(item.price_per_kg || 0).toLocaleString("id-ID")}</span>
+                        <span className="font-semibold text-stone-900">Rp {Number(item.price_per_kg || 0).toLocaleString("id-ID")}</span>
                       </div>
                     )}
                   </td>
                   <td className="px-5 py-3.5 hidden sm:table-cell">
-                    <span className="text-slate-400">{item.updated_at ? new Date(item.updated_at).toLocaleDateString("id-ID") : "-"}</span>
+                    <span className="text-stone-500">{item.updated_at ? new Date(item.updated_at).toLocaleDateString("id-ID") : "-"}</span>
                   </td>
                   <td className="px-5 py-3.5 text-right">
                     {editingId !== item.id && (
                       <button
                         onClick={() => { setEditingId(item.id); setEditPrice(String(item.price_per_kg)); }}
                         disabled={isProcessing}
-                        className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-white/15 transition"
+                        className="rounded-lg bg-stone-100 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-200 transition"
                       >
                         Edit Harga
                       </button>

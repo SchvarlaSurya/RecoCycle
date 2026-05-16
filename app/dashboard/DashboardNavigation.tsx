@@ -104,6 +104,7 @@ export default function DashboardNavigation({ claimableCount = 0 }: { claimableC
         <Link
           key={item.name}
           href={item.href}
+          prefetch={true}
           onClick={() => setMobileMenuOpen(false)}
           className={`relative group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-all duration-300 hover:-translate-y-1 active:scale-95 border border-transparent ${
             isActive

@@ -1,517 +1,624 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowDown, Coins, Leaf, Recycle, Sparkles, Truck } from "lucide-react";
-import { getLandingStats } from "@/app/actions/landing";
+import { motion, AnimatePresence } from "framer-motion";
+import { ChevronRight, Leaf, MapPin, Mail, Menu, Phone, Recycle, Truck, Users, X } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import LandingPickupModal from "@/app/components/LandingPickupModal";
 import OpenPickupButton from "@/app/components/OpenPickupButton";
 import RecoCycleBrand from "@/app/components/RecoCycleBrand";
-import { wasteCatalog } from "@/lib/catalog";
 
-interface Stats {
-  totalPickups: number;
-  totalTonnageBulanIni: number;
-  topWastes: { type: string; total_weight: number }[];
-}
+const navLinks = [
+  { label: "Beranda", href: "#" },
+  { label: "Dampak", href: "#dampak" },
+  { label: "Cara Kerja", href: "#cara-kerja" },
+  { label: "Untuk Komunitas", href: "#komunitas" },
+  { label: "Tentang Kami", href: "#tentang" },
+];
 
-function AnimatedCounter({
-  target,
-  duration = 2000,
-  suffix = "",
-  decimals = 0,
-}: {
-  target: number;
-  duration?: number;
-  suffix?: string;
-  decimals?: number;
-}) {
-  const [count, setCount] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  const [hasStarted, setHasStarted] = useState(false);
+const statsData = [
+  { value: "175.000+", label: "Ton Sampah Dikelola" },
+  { value: "12%", label: "Daur Ulang" },
+  { value: "88%", label: "Terbuang" },
+  { value: "10.000+", label: "Keluarga" },
+];
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && !hasStarted) {
-          setHasStarted(true);
-        }
-      },
-      { threshold: 0.3 }
-    );
+const wasteData = [
+  { name: "Baterai", value: 35, color: "#16a34a" },
+  { name: "Logam", value: 28, color: "#22c55e" },
+  { name: "Kardus", value: 22, color: "#4ade80" },
+  { name: "Plastik", value: 10, color: "#86efac" },
+  { name: "Elektronik", value: 5, color: "#bbf7d0" },
+];
 
-    const node = ref.current;
-    if (node) observer.observe(node);
+const features = [
+  {
+    icon: Truck,
+    title: "Pickup Rumah Tangga",
+    description: "Jadwalkan penjemputan sampah dari rumah Anda. Kurir kami datang tepat waktu untuk menimbang dan mencatat setoran Anda.",
+  },
+  {
+    icon: Recycle,
+    title: "Reward Transparan",
+    description: "Setiap setoran tercatat jelas. Saldo langsung masuk ke akun Anda dan bisa dicairkan kapan saja.",
+  },
+  {
+    icon: Users,
+    title: "Dampak Terukur",
+    description: "Lihat kontribusi Anda terhadap lingkungan melalui data dan laporan dampak yang transparan.",
+  },
+];
 
-    return () => observer.disconnect();
-  }, [hasStarted]);
+const steps = [
+  {
+    number: "01",
+    title: "Jadwalkan Pickup",
+    description: "Pilih jadwal penjemputan yang cocok untuk Anda melalui aplikasi atau website RecoCycle.",
+  },
+  {
+    number: "02",
+    title: "Kurir Datang & Timbang",
+    description: "Tim kami datang ke lokasi, menimbang sampah Anda, dan mencatatnya langsung ke sistem.",
+  },
+  {
+    number: "03",
+    title: "Saldo Masuk",
+    description: "Poin dari setoran Anda langsung masuk ke akun. Tukar dengan uang atau donasikan.",
+  },
+];
 
-  useEffect(() => {
-    if (!hasStarted) return;
-
-    let startTime: number | undefined;
-    let animationFrame = 0;
-
-    const animate = (currentTime: number) => {
-      if (!startTime) startTime = currentTime;
-      const progress = Math.min((currentTime - startTime) / duration, 1);
-      const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-      setCount(eased * target);
-
-      if (progress < 1) {
-        animationFrame = requestAnimationFrame(animate);
-      }
-    };
-
-    animationFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [duration, hasStarted, target]);
-
-  return (
-    <span ref={ref}>
-      {count.toLocaleString("id-ID", {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-      })}
-      {suffix}
-    </span>
-  );
-}
-
-function WasteBar({
-  waste,
-  maxWeight,
-  delay,
-}: {
-  waste: { type: string; total_weight: number };
-  maxWeight: number;
-  delay: number;
-}) {
-  const [width, setWidth] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const [hasStarted, setHasStarted] = useState(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && !hasStarted) {
-          setHasStarted(true);
-        }
-      },
-      { threshold: 0.3 }
-    );
-
-    const node = ref.current;
-    if (node) observer.observe(node);
-    return () => observer.disconnect();
-  }, [hasStarted]);
-
-  useEffect(() => {
-    if (!hasStarted) return;
-
-    const timeout = window.setTimeout(() => {
-      setWidth((waste.total_weight / maxWeight) * 100);
-    }, delay);
-
-    return () => window.clearTimeout(timeout);
-  }, [delay, hasStarted, maxWeight, waste.total_weight]);
-
-  const catalogRef = wasteCatalog.find((item) => item.name === waste.type) ?? wasteCatalog[0];
+function Navbar() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [hoveredLink, setHoveredLink] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div ref={ref} className="group">
-      <div className="mb-2 flex items-end justify-between">
-        <span className="font-medium text-slate-900">{waste.type}</span>
-        <span className="text-sm text-slate-600">{(waste.total_weight / 1000).toFixed(1)} ton</span>
-      </div>
-      <div className="h-3 overflow-hidden rounded-full bg-white/60">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-1000 ease-out"
-          style={{ width: `${width}%` }}
-        />
-      </div>
-      <div className="mt-1 text-xs text-slate-500 opacity-0 transition-opacity group-hover:opacity-100">
-        Rp {catalogRef.pricePerKg.toLocaleString("id-ID")} / kg
-      </div>
-    </div>
-  );
-}
-
-function FloatingOrb({
-  className,
-  delay,
-}: {
-  className: string;
-  delay: string;
-}) {
-  return (
-    <div
-      className={`absolute rounded-full blur-3xl ${className}`}
-      style={{ animationDelay: delay }}
-    />
-  );
-}
-
-function GlassPanel({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`rounded-[32px] border border-white/45 bg-white/28 shadow-[0_20px_60px_rgba(15,23,42,0.16)] backdrop-blur-2xl ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-export default function StorytellingHome() {
-  const [stats, setStats] = useState<Stats>({
-    totalPickups: 0,
-    totalTonnageBulanIni: 0,
-    topWastes: [],
-  });
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    getLandingStats().then((data) => {
-      setStats(data);
-      setLoaded(true);
-    });
-  }, []);
-
-  const displayTopWastes =
-    stats.topWastes.length > 0
-      ? stats.topWastes.slice(0, 5)
-      : wasteCatalog.slice(0, 5).map((item) => ({ type: item.name, total_weight: 0 }));
-
-  const maxWeight = Math.max(...displayTopWastes.map((item) => item.total_weight), 1);
-  const indonesiaWastePerDay = 175000;
-  const recycledPercent = 12;
-
-  const solutionCards = [
-    {
-      icon: Truck,
-      title: "Pickup Rumah Tangga",
-      desc: "Jadwalkan pickup langsung dari rumah. Tidak perlu repot mengantar ke bank sampah.",
-      stat: "Mudah",
-    },
-    {
-      icon: Coins,
-      title: "Reward Transparan",
-      desc: "Dapat bayaran fair untuk setiap kg sampah terpilah. Saldo masuk langsung ke akun.",
-      stat: "Adil",
-    },
-    {
-      icon: Leaf,
-      title: "Dampak Terukur",
-      desc: "Lacak kontribusi Anda untuk lingkungan. Setiap kg berarti bagi bumi.",
-      stat: "Berkah",
-    },
-  ];
-
-  const steps = [
-    {
-      step: "01",
-      title: "Jadwalkan Pickup",
-      desc: "Pilih jenis sampah dan estimasi berat. Tentukan waktu pickup yang nyaman untuk Anda.",
-    },
-    {
-      step: "02",
-      title: "Kurir Datang & Timbang",
-      desc: "Kurir profesional datang, verifikasi, dan timbang sampah Anda dengan transparan.",
-    },
-    {
-      step: "03",
-      title: "Saldo Masuk",
-      desc: "Reward langsung masuk ke akun. Lacak dampak Anda di dashboard pribadi.",
-    },
-  ];
-
-  return (
-    <main className="overflow-x-hidden bg-[#dfeee8] text-slate-900">
-      <div className="fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.55),transparent_40%),linear-gradient(180deg,#0f172a_0%,#102d2b_18%,#dfeee8_56%,#edf6f2_100%)]" />
-        <div className="section-grid absolute inset-0 opacity-[0.08]" />
-        <FloatingOrb className="-left-16 top-20 h-72 w-72 bg-emerald-300/35 animate-float-slow" delay="0s" />
-        <FloatingOrb className="right-[-5rem] top-10 h-96 w-96 bg-cyan-300/25 animate-float-slow" delay="1.4s" />
-        <FloatingOrb className="bottom-[-8rem] left-1/3 h-[26rem] w-[26rem] bg-lime-200/30 animate-float-slow" delay="0.7s" />
-      </div>
-
-      <header className="fixed left-0 right-0 top-0 z-50 px-4 py-4">
-        <GlassPanel className="brand-mesh-light mx-auto flex max-w-6xl items-center justify-between bg-white/40 px-5 py-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-3">
-            <RecoCycleBrand size="sm" />
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-stone-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6">
+              <RecoCycleBrand size="sm" />
+            </div>
+            <span className="text-xs font-medium text-stone-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              Home
+            </span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-8">
+            {navLinks.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                onMouseEnter={() => setHoveredLink(link.label)}
+                onMouseLeave={() => setHoveredLink(null)}
+                className="relative text-sm font-medium text-stone-700 transition-colors duration-200 hover:text-emerald-600 py-1"
+              >
+                <span className="relative z-10">{link.label}</span>
+                <motion.span
+                  className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-500 origin-left"
+                  initial={{ scaleX: hoveredLink === link.label ? 1 : 0 }}
+                  animate={{ scaleX: hoveredLink === link.label ? 1 : 0 }}
+                  transition={{ duration: 0.2 }}
+                />
+                {hoveredLink === link.label && (
+                  <motion.div
+                    className="absolute -bottom-1 left-1/2 w-1 h-1 rounded-full bg-emerald-500"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.15 }}
+                  />
+                )}
+              </Link>
+            ))}
+          </div>
+
+          <div className="hidden md:flex items-center gap-3">
             <Link
               href="/login"
-              className="rounded-full border border-white/60 bg-white/55 px-5 py-2 text-sm font-medium text-slate-900 transition hover:bg-white/80"
+              className="relative px-4 py-2 text-sm font-medium text-stone-700 hover:text-emerald-600 transition-colors duration-200 overflow-hidden group"
             >
-              Masuk
+              <span className="relative z-10">Masuk</span>
+              <span className="absolute bottom-0 left-0 w-full h-px bg-emerald-500 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
             </Link>
             <Link
               href="/register"
-              className="brand-button rounded-full px-5 py-2 text-sm font-semibold text-white transition hover:brightness-105"
+              className="group relative px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-full overflow-hidden transition-all duration-300 hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-500/30 active:scale-95"
             >
-              Daftar
+              <span className="relative z-10">Daftar</span>
+              <motion.span
+                className="absolute inset-0 bg-emerald-500"
+                initial={{ x: "-100%" }}
+                whileHover={{ x: 0 }}
+                transition={{ duration: 0.3 }}
+                style={{ borderRadius: "9999px" }}
+              />
             </Link>
           </div>
-        </GlassPanel>
-      </header>
 
-      <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 pt-28">
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-slate-950/12 to-slate-950/38" />
-
-        <div className="relative z-10 mx-auto w-full max-w-6xl">
-          <GlassPanel className="overflow-hidden border-white/30 bg-slate-950/52 px-6 py-10 shadow-[0_24px_80px_rgba(15,23,42,0.3)] sm:px-10 sm:py-12">
-            <div className="brand-mesh-dark absolute inset-0 opacity-90" />
-            <div className="section-grid absolute inset-0 opacity-[0.05]" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_28%)]" />
-            <div className="relative text-center">
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/14 px-4 py-2 text-sm font-medium uppercase tracking-[0.2em] text-emerald-50 shadow-[0_10px_25px_rgba(0,0,0,0.16)]">
-                <Sparkles className="h-4 w-4" />
-                Fakta yang Perlu Kita Sadari
-              </div>
-
-              <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
-                Setiap Hari, Indonesia
-                <br />
-                <span className="bg-gradient-to-r from-emerald-300 to-cyan-200 bg-clip-text text-transparent">
-                  Menghasilkan {indonesiaWastePerDay.toLocaleString("id-ID")} Ton
-                </span>
-                <br />
-                Sampah
-              </h1>
-
-              <p className="mx-auto mt-8 max-w-3xl text-lg leading-relaxed text-white [text-shadow:0_4px_16px_rgba(0,0,0,0.3)] sm:text-xl">
-                Bayangkan. Tumpukan sampah setinggi gunung. Mencemari tanah, laut, dan udara yang kita hirup.
-                <br className="hidden sm:block" />
-                <span className="font-semibold text-emerald-100">Hanya {recycledPercent}%</span> yang berhasil didaur ulang.
-              </p>
-
-              <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
-                <GlassPanel className="brand-mesh-dark border-white/25 bg-slate-950/48 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.2)] sm:p-8">
-                  <div className="text-4xl font-bold text-emerald-300 sm:text-5xl">
-                    {indonesiaWastePerDay.toLocaleString("id-ID")}
-                  </div>
-                  <div className="mt-2 text-sm font-semibold text-slate-50 sm:text-base">Ton sampah per hari</div>
-                </GlassPanel>
-                <GlassPanel className="brand-mesh-dark border-white/25 bg-slate-950/48 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.2)] sm:p-8">
-                  <div className="text-4xl font-bold text-amber-300 sm:text-5xl">{recycledPercent}%</div>
-                  <div className="mt-2 text-sm font-semibold text-slate-50 sm:text-base">Yang didaur ulang</div>
-                </GlassPanel>
-                <GlassPanel className="brand-mesh-dark border-white/25 bg-slate-950/48 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.2)] sm:p-8">
-                  <div className="text-4xl font-bold text-rose-300 sm:text-5xl">{100 - recycledPercent}%</div>
-                  <div className="mt-2 text-sm font-semibold text-slate-50 sm:text-base">Terbuang sia-sia</div>
-                </GlassPanel>
-              </div>
-
-              <div className="mt-14 inline-flex animate-bounce items-center justify-center rounded-full border border-white/30 bg-white/10 p-3 text-slate-200">
-                <ArrowDown className="h-5 w-5" />
-              </div>
-            </div>
-          </GlassPanel>
+          <button
+            className="md:hidden p-2 text-stone-700 relative group"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            <motion.div
+              animate={{ rotate: mobileMenuOpen ? 90 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </motion.div>
+          </button>
         </div>
-      </section>
+      </div>
 
-      <section className="px-4 py-24">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-16 text-center">
-            <p className="mb-4 text-sm font-medium uppercase tracking-[0.2em] text-emerald-700">Dampak di Sekitar Kita</p>
-            <h2 className="mb-6 text-3xl font-bold text-slate-900 sm:text-4xl md:text-5xl">Sampah Bukan Hanya Angka</h2>
-            <p className="mx-auto max-w-2xl text-lg text-slate-600">
-              Setiap ton sampah yang tidak terkelola adalah peluang yang terbuang.
-              <br />
-              Tapi perubahan dimulai dari langkah kecil.
-            </p>
-          </div>
-
-          <div className="grid items-center gap-8 md:grid-cols-2">
-            <div className="relative">
-              <GlassPanel className="overflow-hidden bg-gradient-to-br from-emerald-700/80 to-teal-700/70 p-8 text-white">
-                <div className="brand-mesh-dark absolute inset-0" />
-                <div className="relative">
-                  <div className="mb-2 text-sm font-medium text-emerald-100">Kontribusi Komunitas RecoCycle</div>
-                  <div className="mb-4 text-5xl font-bold sm:text-6xl">
-                    <AnimatedCounter target={stats.totalTonnageBulanIni} duration={2500} decimals={2} suffix=" ton" />
-                  </div>
-                  <div className="mb-6 text-emerald-100">Sampah terpilah bulan ini</div>
-                  <div className="border-t border-white/20 pt-6">
-                    <div className="flex items-center gap-4">
-                      <div className="text-3xl font-bold">
-                        <AnimatedCounter target={stats.totalPickups} duration={2000} suffix="+" />
-                      </div>
-                      <div className="text-sm text-emerald-100">Pickup berhasil</div>
-                    </div>
-                  </div>
-                </div>
-              </GlassPanel>
-
-              <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-amber-300/35 blur-2xl" />
-              <div className="absolute -bottom-4 -left-4 h-32 w-32 rounded-full bg-emerald-400/25 blur-2xl" />
-            </div>
-
-            <GlassPanel className="brand-mesh-light bg-white/72 p-8">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">Sampah Paling Sering Disetor</h3>
-                  <p className="mt-2 text-sm text-slate-500">Data dari komunitas RecoCycle</p>
-                </div>
-                <div className="rounded-2xl bg-emerald-500/12 p-3 text-emerald-700">
-                  <Recycle className="h-5 w-5" />
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-6">
-                {displayTopWastes.map((waste, idx) =>
-                  loaded && waste.total_weight > 0 ? (
-                    <WasteBar key={waste.type} waste={waste} maxWeight={maxWeight} delay={idx * 200} />
-                  ) : (
-                    <div key={waste.type} className="opacity-50">
-                      <div className="mb-2 flex items-end justify-between">
-                        <span className="font-medium text-slate-900">{waste.type}</span>
-                        <span className="text-sm text-slate-600">Menunggu data</span>
-                      </div>
-                      <div className="h-3 rounded-full bg-white/60" />
-                    </div>
-                  )
-                )}
-              </div>
-            </GlassPanel>
-          </div>
-        </div>
-      </section>
-
-      <section className="px-4 py-24">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-16 text-center">
-            <p className="mb-4 text-sm font-medium uppercase tracking-[0.2em] text-emerald-700">Solusi Dimulai Dari Sini</p>
-            <h2 className="mb-6 text-3xl font-bold text-slate-900 sm:text-4xl md:text-5xl">
-              RecoCycle: Mengubah Masalah Jadi Berkah
-            </h2>
-            <p className="mx-auto max-w-2xl text-lg text-slate-600">
-              Kami percaya sampah bukan sekadar limbah. Sampah adalah sumber daya yang menunggu untuk dikelola dengan benar.
-            </p>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-3">
-            {solutionCards.map(({ icon: Icon, title, desc, stat }) => (
-              <GlassPanel
-                key={title}
-                className="brand-mesh-light group relative overflow-hidden bg-white/72 p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(15,23,42,0.14)]"
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="md:hidden bg-white border-t border-stone-100 overflow-hidden"
+          >
+            <div className="px-4 py-4 space-y-3">
+              {navLinks.map((link, i) => (
+                <motion.div
+                  key={link.label}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                >
+                  <Link
+                    href={link.href}
+                    className="block py-2 text-sm font-medium text-stone-700 hover:text-emerald-600 transition-colors relative group"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {link.label}
+                    <span className="absolute bottom-0 left-0 w-0 h-px bg-emerald-500 group-hover:w-full transition-all duration-300" />
+                  </Link>
+                </motion.div>
+              ))}
+              <motion.div
+                className="pt-3 flex flex-col gap-2"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.25 }}
               >
-                <div className="relative">
-                  <div className="mb-4 inline-flex rounded-2xl bg-emerald-500/12 p-4 text-emerald-700">
-                    <Icon className="h-8 w-8" />
-                  </div>
-                  <h3 className="mb-3 text-xl font-bold text-slate-900">{title}</h3>
-                  <p className="mb-4 leading-relaxed text-slate-600">{desc}</p>
-                  <div className="inline-flex items-center gap-2 font-semibold text-emerald-700">
-                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm">{stat}</span>
-                  </div>
-                </div>
-              </GlassPanel>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="px-4 py-24">
-        <div className="mx-auto max-w-4xl">
-          <div className="mb-16 text-center">
-            <p className="mb-4 text-sm font-medium uppercase tracking-[0.2em] text-emerald-700">Proses Sederhana</p>
-            <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl md:text-5xl">3 Langkah Menuju Perubahan</h2>
-          </div>
-
-          <div className="relative">
-            <div className="absolute bottom-0 left-8 top-0 w-0.5 bg-gradient-to-b from-emerald-500 via-teal-500 to-emerald-500 md:left-1/2" />
-
-            {steps.map((item, idx) => (
-              <div
-                key={item.step}
-                className={`relative mb-12 flex items-center gap-8 last:mb-0 ${idx % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"}`}
-              >
-                <div className={`flex-1 pl-20 md:pl-0 ${idx % 2 === 0 ? "md:text-right" : "md:text-left"}`}>
-                  <GlassPanel className={`brand-mesh-light inline-block bg-white/76 p-6 ${idx % 2 === 0 ? "md:ml-auto" : "md:mr-auto"} max-w-sm`}>
-                    <div className="mb-2 text-4xl font-bold text-emerald-600">{item.step}</div>
-                    <h3 className="mb-2 text-xl font-bold text-slate-900">{item.title}</h3>
-                    <p className="text-sm leading-relaxed text-slate-600">{item.desc}</p>
-                  </GlassPanel>
-                </div>
-
-                <div className="absolute left-8 h-4 w-4 -translate-x-1/2 rounded-full border-4 border-white bg-emerald-500 shadow md:left-1/2" />
-                <div className="hidden flex-1 md:block" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="relative overflow-hidden px-4 py-24">
-        <div className="absolute left-0 top-0 h-64 w-64 rounded-full bg-white/20 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-emerald-400/18 blur-3xl" />
-
-        <div className="relative z-10 mx-auto max-w-4xl">
-          <GlassPanel className="overflow-hidden bg-gradient-to-br from-emerald-900/70 via-teal-800/60 to-emerald-950/75 px-6 py-10 text-center sm:px-8">
-            <div className="brand-mesh-dark absolute inset-0" />
-            <div className="section-grid absolute inset-0 opacity-[0.05]" />
-            <div className="relative">
-              <h2 className="mb-6 text-3xl font-bold text-white sm:text-4xl md:text-5xl">Siap Jadi Bagian Perubahan?</h2>
-              <p className="mx-auto mb-10 max-w-2xl text-xl text-emerald-100">
-                Bergabunglah dengan ribuan warga yang sudah mengubah sampah jadi berkah. Mulai hari ini, tanpa biaya
-                pendaftaran.
-              </p>
-
-              <div className="flex flex-col justify-center gap-4 sm:flex-row">
-                <OpenPickupButton className="brand-button inline-flex items-center justify-center rounded-full px-8 py-4 text-base font-semibold text-white transition hover:brightness-105">
-                  Jadwalkan Pickup Pertama
-                </OpenPickupButton>
+                <Link
+                  href="/login"
+                  className="w-full text-center px-4 py-2 text-sm font-medium text-stone-700 border border-stone-200 rounded-full hover:border-emerald-400 hover:text-emerald-600 transition-colors"
+                >
+                  Masuk
+                </Link>
                 <Link
                   href="/register"
-                  className="inline-flex items-center justify-center rounded-full border-2 border-white/50 bg-white/10 px-8 py-4 text-base font-semibold text-white transition hover:bg-white/16"
+                  className="w-full text-center px-4 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-full hover:bg-emerald-700 transition-colors"
                 >
-                  Buat Akun Gratis
+                  Daftar
                 </Link>
-              </div>
-
-              <p className="mt-8 text-sm text-emerald-200">Tanpa biaya tersembunyi • Pickup terjadwal • Reward transparan</p>
+              </motion.div>
             </div>
-          </GlassPanel>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </nav>
+  );
+}
+
+function Hero() {
+  return (
+    <section className="pt-32 pb-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-emerald-50 to-white">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-stone-900 leading-tight">
+              Indonesia Darurat Sampah.
+              <span className="text-emerald-600"> Bersama,</span> Kita Ubah Jadi Berkah.
+            </h1>
+            <p className="mt-6 text-lg text-stone-700 leading-relaxed">
+              RecoCycle menghubungkan rumah tangga dengan sistem pengelolaan sampah yang terstruktur. Setor sampah, dapat reward, bantu lingkungan.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <OpenPickupButton className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-full transition-colors">
+                Mulai Sekarang
+                <ChevronRight className="w-4 h-4" />
+              </OpenPickupButton>
+              <Link href="/login" className="inline-flex items-center gap-2 px-6 py-3 border-2 border-stone-300 hover:border-emerald-600 text-stone-700 font-semibold rounded-full transition-colors">
+                Lihat Demo
+              </Link>
+            </div>
+            <div className="mt-8 flex items-center gap-4">
+              <div className="flex -space-x-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div
+                    key={i}
+                    className="w-10 h-10 rounded-full bg-emerald-100 border-2 border-white flex items-center justify-center"
+                  >
+                    <Users className="w-5 h-5 text-emerald-600" />
+                  </div>
+                ))}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-stone-900">10.000+ rumah tangga</p>
+                <p className="text-xs text-stone-600">telah bergabung</p>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="relative"
+          >
+            <div className="relative bg-gradient-to-br from-emerald-100 to-teal-100 rounded-3xl p-8 aspect-square flex items-center justify-center">
+              <div className="absolute inset-4 bg-white/60 rounded-2xl backdrop-blur" />
+              <div className="relative z-10 text-center">
+                <Leaf className="w-32 h-32 text-emerald-600 mx-auto" />
+                <p className="mt-4 text-xl font-bold text-stone-900">Recycle Together</p>
+                <p className="text-sm text-stone-600">untuk Indonesia yang lebih bersih</p>
+              </div>
+            </div>
+          </motion.div>
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      <footer className="px-4 pb-8">
-        <GlassPanel className="brand-mesh-dark mx-auto flex max-w-6xl flex-col justify-between gap-5 bg-slate-950/75 px-4 py-8 text-slate-200 sm:flex-row sm:items-center sm:px-6">
-          <div>
-            <p className="text-sm font-medium">RecoCycle Indonesia</p>
-            <p className="mt-1 text-sm text-slate-400">Program pengelolaan sampah berbasis layanan jemput kawasan.</p>
+function StatsBar() {
+  return (
+    <section className="py-12 bg-emerald-600">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          {statsData.map((stat, i) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              className="text-center"
+            >
+              <Truck className="w-8 h-8 text-emerald-200 mx-auto mb-2" />
+              <p className="text-3xl sm:text-4xl font-bold text-white">{stat.value}</p>
+              <p className="text-sm text-emerald-200 mt-1">{stat.label}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ResponsiveBarChart() {
+  const [isMobile, setIsMobile] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dims, setDims] = useState({ width: 400, height: 256 });
+
+  useEffect(() => {
+    const update = () => {
+      const mobile = window.innerWidth < 640;
+      setIsMobile(mobile);
+      if (containerRef.current) {
+        setDims({
+          width: containerRef.current.offsetWidth,
+          height: mobile ? 192 : 256,
+        });
+      }
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="w-full">
+      <ResponsiveContainer width="100%" height={dims.height}>
+        <BarChart data={wasteData} layout="vertical" margin={{ top: 5, right: isMobile ? 10 : 20, left: isMobile ? 5 : 10, bottom: 5 }}>
+          <XAxis type="number" hide />
+          <YAxis
+            type="category"
+            dataKey="name"
+            tick={{ fill: "#57534e", fontSize: isMobile ? 10 : 12 }}
+            width={isMobile ? 45 : 80}
+            tickLine={false}
+            axisLine={false}
+          />
+          <Tooltip
+            contentStyle={{
+              borderRadius: 12,
+              border: "none",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+              fontSize: 12,
+            }}
+            cursor={{ fill: "rgba(16, 185, 129, 0.1)" }}
+          />
+          <Bar dataKey="value" radius={[0, 8, 8, 0]} animationDuration={1200}>
+            {wasteData.map((entry, index) => (
+              <Cell key={index} fill={entry.color} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ImpactSection() {
+  return (
+    <section id="dampak" className="py-16 px-4 sm:px-6 lg:px-8 bg-stone-50">
+      <div className="max-w-7xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center mb-12"
+        >
+          <h2 className="text-3xl sm:text-4xl font-bold text-stone-900">Dampak Nyata untuk Lingkungan</h2>
+          <p className="mt-4 text-lg text-stone-700 max-w-2xl mx-auto">
+            Setiap kontribusi Anda tercatat dan memberikan dampak nyata bagi lingkungan dan komunitas sekitar.
+          </p>
+        </motion.div>
+
+        <div className="grid md:grid-cols-2 gap-12 items-center">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="bg-white rounded-3xl p-8 shadow-lg"
+          >
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+                <Recycle className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-stone-900">Data Komunitas</h3>
+                <p className="text-sm text-stone-600">Total sampah terkelola</p>
+              </div>
+            </div>
+            <div className="text-center py-8">
+              <p className="text-5xl font-bold text-emerald-600">0,06 ton</p>
+              <p className="text-stone-600 mt-2">sampah telah disetor</p>
+            </div>
+            <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="text-center p-4 bg-stone-50 rounded-xl">
+                <p className="text-2xl font-bold text-stone-900">2</p>
+                <p className="text-xs text-stone-600">Penjemputan</p>
+              </div>
+              <div className="text-center p-4 bg-stone-50 rounded-xl">
+                <p className="text-2xl font-bold text-stone-900">85%</p>
+                <p className="text-xs text-stone-600">Tingkat Daur Ulang</p>
+              </div>
+              <div className="text-center p-4 bg-stone-50 rounded-xl">
+                <p className="text-2xl font-bold text-stone-900">3</p>
+                <p className="text-xs text-stone-600">Komunitas</p>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="bg-white rounded-3xl p-6 sm:p-8 shadow-lg"
+          >
+            <h3 className="text-lg font-bold text-stone-900 mb-4 sm:mb-6">Sampah Paling Sering Disetor</h3>
+            <ResponsiveBarChart />
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Features() {
+  return (
+    <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
+      <div className="max-w-7xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center mb-12"
+        >
+          <h2 className="text-3xl sm:text-4xl font-bold text-stone-900">Mengapa RecoCycle?</h2>
+          <p className="mt-4 text-lg text-stone-700 max-w-2xl mx-auto">
+            Platform pengelolaan sampah yang dirancang untuk kemudahan dan dampak maksimal.
+          </p>
+        </motion.div>
+
+        <div className="grid md:grid-cols-3 gap-8">
+          {features.map((feature, i) => (
+            <motion.div
+              key={feature.title}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              className="bg-stone-50 rounded-3xl p-8 hover:shadow-xl transition-shadow"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center mb-6">
+                <feature.icon className="w-7 h-7 text-emerald-600" />
+              </div>
+              <h3 className="text-xl font-bold text-stone-900 mb-3">{feature.title}</h3>
+              <p className="text-stone-700 leading-relaxed">{feature.description}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HowItWorks() {
+  return (
+    <section id="cara-kerja" className="py-16 px-4 sm:px-6 lg:px-8 bg-emerald-50">
+      <div className="max-w-7xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center mb-12"
+        >
+          <h2 className="text-3xl sm:text-4xl font-bold text-stone-900">Cara Kerja RecoCycle</h2>
+          <p className="mt-4 text-lg text-stone-700 max-w-2xl mx-auto">
+            Tiga langkah mudah untuk berkontribusi pada lingkungan yang lebih bersih.
+          </p>
+        </motion.div>
+
+        <div className="grid md:grid-cols-3 gap-8">
+          {steps.map((step, i) => (
+            <motion.div
+              key={step.title}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.15 }}
+              className="relative"
+            >
+              {i < steps.length - 1 && (
+                <div className="hidden md:block absolute top-12 left-full w-full h-0.5 bg-emerald-200 -translate-x-1/2" />
+              )}
+              <div className="bg-white rounded-3xl p-8 text-center relative">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xl font-bold">
+                  {step.number}
+                </div>
+                <div className="pt-6">
+                  <h3 className="text-xl font-bold text-stone-900 mb-3">{step.title}</h3>
+                  <p className="text-stone-700 leading-relaxed">{step.description}</p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CTABanner() {
+  return (
+    <section className="py-16 px-4 sm:px-6 lg:px-8 bg-emerald-600">
+      <div className="max-w-4xl mx-auto text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+        >
+          <h2 className="text-3xl sm:text-4xl font-bold text-white">Siap Jadi Bagian Perubahan?</h2>
+          <p className="mt-4 text-lg text-emerald-100 max-w-2xl mx-auto">
+            Bergabunglah dengan ribuan rumah tangga yang telah berkontribusi pada pengelolaan sampah yang lebih baik.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-4">
+            <OpenPickupButton className="inline-flex items-center gap-2 px-8 py-4 bg-white hover:bg-emerald-50 text-emerald-700 font-semibold rounded-full transition-colors">
+              <Leaf className="w-5 h-5" />
+              Jadwalkan Pickup
+            </OpenPickupButton>
+            <Link href="/register" className="inline-flex items-center gap-2 px-8 py-4 border-2 border-white hover:bg-white/10 text-white font-semibold rounded-full transition-colors">
+              Daftar Sekarang
+            </Link>
           </div>
-          <div className="text-sm text-slate-400">© 2026 RecoCycle. All rights reserved.</div>
-        </GlassPanel>
-      </footer>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
 
+function Footer() {
+  return (
+    <footer className="bg-stone-900 text-stone-400 py-16 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid md:grid-cols-4 gap-12">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <RecoCycleBrand size="sm" />
+            </div>
+            <p className="text-sm leading-relaxed">
+              Platform pengelolaan sampah untuk Indonesia yang lebih bersih dan berkelanjutan.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="text-white font-semibold mb-4">Navigasi</h4>
+            <ul className="space-y-2">
+              {navLinks.map((link) => (
+                <li key={link.label}>
+                  <Link href={link.href} className="text-sm hover:text-emerald-400 transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-white font-semibold mb-4">Layanan</h4>
+            <ul className="space-y-2">
+              <li><span className="text-sm">Penjemputan Sampah</span></li>
+              <li><span className="text-sm">Daur Ulang</span></li>
+              <li><span className="text-sm">Rewards</span></li>
+              <li><span className="text-sm">Komunitas</span></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-white font-semibold mb-4">Kontak</h4>
+            <ul className="space-y-3">
+              <li className="flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                <span className="text-sm">Jakarta, Indonesia</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                <span className="text-sm">hello@reocycle.id</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Phone className="w-4 h-4" />
+                <span className="text-sm">+62 21 1234 5678</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-12 pt-8 border-t border-stone-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-sm">© 2024 RecoCycle. Hak cipta dilindungi.</p>
+          <div className="flex items-center gap-4">
+            <span className="text-sm">Ikuti kami:</span>
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-lg bg-stone-800 flex items-center justify-center hover:bg-emerald-600 transition-colors cursor-pointer">
+                <span className="text-xs">FB</span>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-stone-800 flex items-center justify-center hover:bg-emerald-600 transition-colors cursor-pointer">
+                <span className="text-xs">IG</span>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-stone-800 flex items-center justify-center hover:bg-emerald-600 transition-colors cursor-pointer">
+                <span className="text-xs">TW</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <main className="min-h-screen bg-white">
+      <Navbar />
+      <Hero />
+      <StatsBar />
+      <ImpactSection />
+      <Features />
+      <HowItWorks />
+      <CTABanner />
+      <Footer />
       <LandingPickupModal />
-
-      <style jsx global>{`
-        @keyframes float-slow {
-          0%,
-          100% {
-            transform: translateY(0px) scale(1);
-          }
-          50% {
-            transform: translateY(-24px) scale(1.04);
-          }
-        }
-
-        .animate-float-slow {
-          animation: float-slow 10s ease-in-out infinite;
-        }
-      `}</style>
     </main>
   );
 }

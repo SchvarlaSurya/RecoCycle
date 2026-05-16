@@ -2,10 +2,12 @@
 
 import { useWasteStore } from "@/store/useWasteStore";
 import { useState, useRef, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const { notifications, markNotificationsAsRead } = useWasteStore();
+  const { user } = useUser();
   const menuRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -20,11 +22,19 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleToggle = () => {
-    if (!isOpen && unreadCount > 0) {
+  const handleToggle = async () => {
+    const wasClosed = !isOpen;
+    setIsOpen(!isOpen);
+
+    // Only mark as read when opening the dropdown and there are unread notifications
+    if (wasClosed && unreadCount > 0 && user) {
+      try {
+        await fetch(`/api/notifications?userId=${user.id}`, { method: 'PUT' })
+      } catch (e) {
+        console.error('Failed to mark notifications as read:', e)
+      }
       markNotificationsAsRead();
     }
-    setIsOpen(!isOpen);
   };
 
   return (

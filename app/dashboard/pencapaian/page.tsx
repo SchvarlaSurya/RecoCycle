@@ -11,7 +11,6 @@ export default function PencapaianPage() {
 
   useEffect(() => {
     async function loadBadges() {
-      // Sekalian trigger pengecekan badge pas halamannya dbuka
       await evaluateBadges();
       const res = await getUserBadges();
       if (res.success && res.data) {

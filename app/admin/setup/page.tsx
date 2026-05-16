@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { setUserAsAdmin } from "@/app/actions/adminSetup";
+import Link from "next/link";
 
 export default function AdminSetupPage() {
   const { user } = useUser();
@@ -37,7 +38,7 @@ export default function AdminSetupPage() {
         {status === "idle" && (
           <button
             onClick={handlePromote}
-            className="w-full rounded-2xl bg-emerald-600 py-4 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition hover:bg-emerald-700 active:scale-95"
+            className="w-full rounded-2xl bg-emerald-600 py-4 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition hover:bg-emerald-500 active:scale-95"
           >
             Promosikan Saya Jadi Admin
           </button>
@@ -59,12 +60,12 @@ export default function AdminSetupPage() {
             </div>
             <p className="text-emerald-800 font-medium">{message}</p>
             <p className="text-xs text-stone-500">Anda sekarang bisa mengakses semua fitur admin dengan role "admin".</p>
-            <a
+            <Link
               href="/admin"
               className="inline-block mt-4 text-sm font-semibold text-emerald-600 hover:underline"
             >
               Kembali ke Dashboard Admin
-            </a>
+            </Link>
           </div>
         )}
 

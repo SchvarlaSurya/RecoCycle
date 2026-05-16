@@ -1,17 +1,79 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
 import { useWasteStore } from "@/store/useWasteStore";
+import { Recycle, FileText } from "lucide-react";
+
+interface Transaction {
+  id: string;
+  type: string;
+  category: string;
+  description: string;
+  weight: number;
+  reward: number;
+  date: string;
+  status: string;
+  created_at: string;
+}
 
 export default function RiwayatPage() {
-  const transactions = useWasteStore((state) => state.transactions);
+  const { user, isLoaded } = useUser();
+  const storeTransactions = useWasteStore((state) => state.transactions);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const fetchTransactions = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const res = await fetch(`/api/transactions?userId=${user.id}&type=setoran`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const formatted: Transaction[] = data.map((tx: any) => ({
+            id: tx.id || tx.reference_id || '',
+            type: tx.description?.split(' - ')[0]?.replace('Setor ', '') || tx.category || 'Setoran',
+            category: tx.category || '',
+            description: tx.description || '',
+            weight: 0,
+            reward: parseFloat(tx.amount) || 0,
+            date: tx.created_at ? new Date(tx.created_at).toLocaleDateString('id-ID', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric'
+            }) : '',
+            status: tx.status || 'pending',
+            created_at: tx.created_at || '',
+          }));
+          setTransactions(formatted);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch transactions:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1200);
-    return () => clearTimeout(timer);
-  }, []);
+    if (user) {
+      fetchTransactions();
+    }
+  }, [user, fetchTransactions]);
+
+  // Refresh on window focus
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        fetchTransactions();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user, fetchTransactions]);
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
@@ -26,12 +88,29 @@ export default function RiwayatPage() {
       case "berhasil":
       case "selesai":
       case "success":
+      case "terverifikasi":
         return "bg-emerald-50 text-emerald-700 ring-emerald-600/20";
       case "ditolak":
       case "rejected":
         return "bg-red-50 text-red-700 ring-red-600/20";
       default:
         return "bg-emerald-50 text-emerald-700 ring-emerald-600/20";
+    }
+  };
+
+  const formatStatus = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "pending":
+        return "MENUNGGU";
+      case "terverifikasi":
+      case "success":
+      case "berhasil":
+        return "TERVERIFIKASI";
+      case "ditolak":
+      case "rejected":
+        return "DITOLAK";
+      default:
+        return status.toUpperCase();
     }
   };
 
@@ -46,7 +125,7 @@ export default function RiwayatPage() {
       </header>
 
       <section className="glass-panel overflow-hidden rounded-[30px]">
-        {isLoading ? (
+        {isLoading || !isLoaded ? (
           <div className="divide-y divide-white/55">
             {[...Array(4)].map((_, index) => (
               <div key={index} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -76,11 +155,11 @@ export default function RiwayatPage() {
                     <div className="flex items-center gap-3">
                       <p className="font-semibold text-stone-900">{item.type}</p>
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset ${getStatusColor(item.status)}`}>
-                        {item.status}
+                        {formatStatus(item.status)}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-stone-700">
-                      {item.date} • {item.id}
+                      {item.date} • {item.id.slice(0, 8).toUpperCase()}
                     </p>
                   </div>
                   <div className="mt-2 flex items-center gap-4 sm:mt-0">
@@ -99,7 +178,7 @@ export default function RiwayatPage() {
                           RecoCycle - Struk Digital
                         </h3>
                         <p className="mt-0.5 text-[11px] text-stone-600">
-                          ID: {item.id} • Tgl: {item.date}
+                          ID: {item.id.slice(0, 8).toUpperCase()} • Tgl: {item.date}
                         </p>
                       </div>
                       <div className="space-y-2 pt-3">
@@ -107,16 +186,12 @@ export default function RiwayatPage() {
                           <span className="text-stone-600">Material</span>
                           <span className="font-medium text-stone-900">{item.type}</span>
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-stone-600">Berat Bersih</span>
-                          <span className="font-medium text-stone-900">{item.weight} kg</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-stone-600">Harga per kg</span>
-                          <span className="font-medium text-stone-900">
-                            Rp {(item.reward / item.weight).toLocaleString("id-ID")}
-                          </span>
-                        </div>
+                        {item.description && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-stone-600">Deskripsi</span>
+                            <span className="font-medium text-stone-900">{item.description}</span>
+                          </div>
+                        )}
                         <div className="mt-2 flex justify-between border-t border-stone-100 pt-3 text-sm">
                           <span className="font-semibold text-stone-800">Total Reward</span>
                           <span className="font-bold text-emerald-700">Rp {item.reward.toLocaleString("id-ID")}</span>
@@ -128,8 +203,21 @@ export default function RiwayatPage() {
               </div>
             ))}
             {transactions.length === 0 && (
-              <div className="px-6 py-12 text-center text-stone-600">
-                Belum ada riwayat transaksi setoran.
+              <div className="px-6 py-16 text-center">
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50">
+                  <Recycle className="h-10 w-10 text-emerald-300" />
+                </div>
+                <h3 className="text-lg font-semibold text-stone-700">Belum Ada Riwayat Setoran</h3>
+                <p className="mt-2 text-sm text-stone-500 max-w-xs mx-auto">
+                  Mulai setor sampah pertama Anda dan lihat riwayat transaksi di sini.
+                </p>
+                <Link
+                  href="/dashboard/setor"
+                  className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors"
+                >
+                  <FileText className="h-4 w-4" />
+                  Mulai Setor Sekarang
+                </Link>
               </div>
             )}
           </div>

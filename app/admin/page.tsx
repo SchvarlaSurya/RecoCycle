@@ -3,299 +3,466 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip as RechartsTooltip,
+  Tooltip,
   ResponsiveContainer,
+  AreaChart,
+  Area,
 } from "recharts";
-import { transactionStatusLabel } from "@/lib/types";
-import { getDashboardOverviewStats, type AdminStats, getAllTransactionsAdmin } from "@/app/actions/adminDashboard";
-import { getActivityLog } from "@/app/actions/adminVerification";
+import { Bell, Calendar, ChevronDown, Package, Users, CheckCircle, ArrowRight, FileText, ShieldCheck, AlertCircle, Clock, TrendingUp, Recycle } from "lucide-react";
 
-type AdminTransaction = NonNullable<Awaited<ReturnType<typeof getAllTransactionsAdmin>>["data"]>[number];
-type AdminActivityLog = NonNullable<Awaited<ReturnType<typeof getActivityLog>>["logs"]>[number];
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
 
-function AdminGlassCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`glass-dark-panel rounded-[28px] ${className}`}>
-      {children}
-    </div>
-  );
+interface DashboardStats {
+  totalUsers: number
+  totalPickups: number
+  totalKg: number
+  pendingPickups: number
+  pendingWithdrawals: number
+  pendingWithdrawalAmount: number
+  totalBalance: number
+}
+
+interface RecentTransaction {
+  id: string
+  user_id: string
+  user_name: string
+  type: string
+  category: string | null
+  description: string | null
+  amount: number
+  status: string
+  created_at: string
+}
+
+interface PendingPickup {
+  id: string
+  user_id: string
+  user_name: string
+  waste_name: string
+  weight_kg: number
+  pickup_date: string
+  time_slot: string
+  address: string
+  estimated_reward: number
+  status: string
+  created_at: string
+}
+
+interface PendingWithdrawal {
+  id: string
+  user_id: string
+  user_name: string
+  method: string
+  method_name: string
+  account_number: string
+  amount: number
+  status: string
+  created_at: string
 }
 
 export default function AdminOverviewPage() {
-  const [stats, setStats] = useState<AdminStats | null>(null);
-  const [recentTx, setRecentTx] = useState<AdminTransaction[]>([]);
-  const [recentLogs, setRecentLogs] = useState<AdminActivityLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalUsers: 0,
+    totalPickups: 0,
+    totalKg: 0,
+    pendingPickups: 0,
+    pendingWithdrawals: 0,
+    pendingWithdrawalAmount: 0,
+    totalBalance: 0
+  })
+  const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([])
+  const [pendingPickups, setPendingPickups] = useState<PendingPickup[]>([])
+  const [pendingWithdrawals, setPendingWithdrawals] = useState<PendingWithdrawal[]>([])
+  const [categoryData, setCategoryData] = useState<{ name: string; value: number; color: string }[]>([])
+  const [weeklyData, setWeeklyData] = useState<{ date: string; kg: number }[]>([])
+  const [topWaste, setTopWaste] = useState<{ name: string; kg: number; percent: number }[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  const fetchAdminData = async () => {
+    try {
+      const res = await fetch('/api/admin/dashboard', {
+        headers: { 'x-admin-secret': ADMIN_SECRET }
+      })
+      if (!res.ok) throw new Error('Failed to fetch')
+
+      const data = await res.json()
+
+      if (data.stats) {
+        setStats(data.stats)
+      }
+
+      if (data.weeklyTrend) {
+        setWeeklyData(data.weeklyTrend)
+      }
+
+      if (data.distribution) {
+        setCategoryData(data.distribution.map((d: any) => ({
+          name: d.name,
+          value: d.kg,
+          color: d.color
+        })))
+      }
+
+      if (data.topWaste) {
+        setTopWaste(data.topWaste)
+      }
+
+      if (data.recentTransactions) {
+        setRecentTransactions(data.recentTransactions)
+      }
+
+      if (data.pendingPickups) {
+        setPendingPickups(data.pendingPickups)
+      }
+
+      if (data.pendingWithdrawals) {
+        setPendingWithdrawals(data.pendingWithdrawals)
+      }
+
+    } catch (error) {
+      console.error('Failed to fetch admin data:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
-      try {
-        const [statsRes, txRes, logsRes] = await Promise.all([
-          getDashboardOverviewStats(),
-          getAllTransactionsAdmin(),
-          getActivityLog(5),
-        ]);
+    fetchAdminData()
+    const interval = setInterval(fetchAdminData, 10000)
+    return () => clearInterval(interval)
+  }, [])
 
-        if (statsRes.success && statsRes.data) {
-          setStats(statsRes.data);
-        }
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount)
+  }
 
-        if (txRes.success && txRes.data) {
-          setRecentTx(txRes.data.slice(0, 5));
-        }
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'Asia/Jakarta'
+    })
+  }
 
-        if (logsRes.success && logsRes.logs) {
-          setRecentLogs(logsRes.logs);
-        }
-      } catch (error) {
-        console.error("Error loading dashboard data:", error);
-      } finally {
-        setIsLoading(false);
-      }
+  const formatTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Jakarta'
+    })
+  }
+
+  const statusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+      pending: 'bg-amber-100 text-amber-700',
+      verified: 'bg-emerald-100 text-emerald-700',
+      'Menunggu Verifikasi': 'bg-amber-100 text-amber-700',
+      'Selesai': 'bg-emerald-100 text-emerald-700',
+      rejected: 'bg-red-100 text-red-700',
+      'Ditolak': 'bg-red-100 text-red-700',
+      completed: 'bg-blue-100 text-blue-700'
     }
-
-    loadData();
-  }, []);
+    return (
+      <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${styles[status] || styles.pending}`}>
+        {status.toUpperCase()}
+      </span>
+    )
+  }
 
   if (isLoading) {
     return (
-      <div className="mx-auto flex h-[50vh] w-full max-w-7xl items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+      <div className="min-h-screen bg-[#e4efe9] text-stone-900 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-12 w-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-stone-600">Memuat data...</p>
+        </div>
       </div>
-    );
+    )
   }
 
-  const totalBalance = stats?.totalBalance || 0;
-  const todayWeight = stats?.todayWeight || 0;
-  const pendingCount = stats?.pendingCount || 0;
-  const activeNasabah = stats?.activeNasabahCount || 0;
-  const monthlyByCategory = stats?.monthlyByCategory || [];
-  const weeklyData = stats?.weeklyData || [];
-
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 pb-12">
-      <div className="mb-2">
-        <h1 className="text-2xl font-semibold text-white">Dashboard Admin</h1>
-        <p className="text-sm text-slate-300">Pantau aktivitas Bank Sampah secara real-time.</p>
+    <div className="space-y-6">
+      {/* Welcome Heading */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-stone-900">Selamat datang kembali, Admin! 👋</h1>
+          <p className="text-stone-600 text-sm mt-1">
+            {new Date().toLocaleDateString('id-ID', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+              timeZone: 'Asia/Jakarta'
+            })}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            Online
+          </span>
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+            Administrator
+          </span>
+        </div>
       </div>
 
-      <section id="admin-stats" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <AdminGlassCard className="relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
-          <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-emerald-400/10" />
-          <div className="relative">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-400">
-              <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
-              </svg>
-              Total Saldo Nasabah
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 hover:shadow-lg hover:shadow-emerald-100 transition-all">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-stone-600">Total Saldo Sistem</p>
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-emerald-600" />
             </div>
-            <p className="mt-3 text-3xl font-bold text-white">Rp {totalBalance.toLocaleString("id-ID")}</p>
-            <p className="mt-1 text-xs text-slate-500">Akumulasi seluruh saldo aktif</p>
           </div>
-        </AdminGlassCard>
+          <p className="text-2xl font-bold mt-2 text-stone-900">{formatCurrency(stats.totalBalance)}</p>
+          <p className="text-xs text-emerald-600 mt-1">Saldo semua user</p>
+        </div>
 
-        <AdminGlassCard className="relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
-          <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-blue-400/10" />
-          <div className="relative">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-400">
-              <svg className="h-4 w-4 text-blue-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5.0a48.392 48.392 0 012.916.52A6.003 6.003 0 0118.06 9.84M5.25 4.97A48.303 48.303 0 002.334 5.49 6.003 6.003 0 005.94 9.84m0 0a4.495 4.495 0 01-.9 7.41 4.5 4.5 0 01-3.45 1.235M5.94 9.84a4.493 4.493 0 00-1.245 3.66" />
-              </svg>
-              Berat Masuk Hari Ini
+        <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-5 hover:shadow-lg hover:shadow-blue-100 transition-all">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-stone-600">Total Sampah Masuk</p>
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+              <Package className="h-5 w-5 text-blue-600" />
             </div>
-            <p className="mt-3 text-3xl font-bold text-white">
-              {todayWeight} <span className="text-lg text-slate-500">kg</span>
-            </p>
-            <p className="mt-1 text-xs text-slate-500">Terverifikasi hari ini</p>
           </div>
-        </AdminGlassCard>
+          <p className="text-2xl font-bold mt-2 text-stone-900">{stats.totalKg.toFixed(1)} kg</p>
+          <p className="text-xs text-blue-600 mt-1">{stats.totalPickups} pickup terverifikasi</p>
+        </div>
 
-        <AdminGlassCard className="relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
-          <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-violet-400/10" />
-          <div className="relative">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-400">
-              <svg className="h-4 w-4 text-violet-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-              </svg>
-              Nasabah Aktif
+        <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-5 hover:shadow-lg hover:shadow-violet-100 transition-all">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-stone-600">Total Nasabah</p>
+            <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
+              <Users className="h-5 w-5 text-violet-600" />
             </div>
-            <p className="mt-3 text-3xl font-bold text-white">
-              {activeNasabah} <span className="text-lg text-slate-500">orang</span>
-            </p>
-            <p className="mt-1 text-xs text-slate-500">Total partisipan di sistem</p>
           </div>
-        </AdminGlassCard>
+          <p className="text-2xl font-bold mt-2 text-stone-900">{stats.totalUsers}</p>
+          <p className="text-xs text-violet-600 mt-1">User terdaftar</p>
+        </div>
 
-        <Link href="/admin/transaksi" className="block">
-          <AdminGlassCard className={`relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(0,0,0,0.22)] ${pendingCount > 0 ? "border-amber-400/25 bg-amber-500/10" : ""}`}>
-            <div className={`absolute -right-4 -top-4 h-20 w-20 rounded-full ${pendingCount > 0 ? "bg-amber-300/12" : "bg-white/6"}`} />
-            <div className="relative">
-              <div className={`flex items-center gap-2 text-sm font-medium ${pendingCount > 0 ? "text-amber-200" : "text-slate-400"}`}>
-                <svg className={`h-4 w-4 ${pendingCount > 0 ? "text-amber-300" : "text-slate-500"}`} fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                </svg>
-                Pending Verification
-              </div>
-              <p className={`mt-3 text-3xl font-bold ${pendingCount > 0 ? "text-amber-100" : "text-white"}`}>
-                {pendingCount}
-                {pendingCount > 0 && <span className="ml-2 inline-flex h-3 w-3 animate-ping rounded-full bg-amber-400" />}
-              </p>
-              <p className={`mt-1 text-xs ${pendingCount > 0 ? "text-amber-200/80" : "text-slate-500"}`}>
-                {pendingCount > 0 ? "Klik untuk validasi ->" : "Semua transaksi sudah diproses"}
-              </p>
+        <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-5 hover:shadow-lg hover:shadow-amber-100 transition-all">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-stone-600">Pending Verifikasi</p>
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
             </div>
-          </AdminGlassCard>
-        </Link>
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-2">
-        <AdminGlassCard className="p-5 sm:p-6">
-          <h2 className="mb-6 text-lg font-semibold text-white">Tren Setoran 7 Hari Terakhir</h2>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#94a3b8" }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#94a3b8" }} />
-                <RechartsTooltip cursor={{ fill: "#17212b" }} contentStyle={{ borderRadius: "0.75rem", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(15,23,32,0.92)", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.2)" }} formatter={(value) => [`${value} kg`, "Berat"]} />
-                <Bar dataKey="weight" name="Berat (kg)" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={45} />
-              </BarChart>
-            </ResponsiveContainer>
           </div>
-        </AdminGlassCard>
+          <p className="text-2xl font-bold mt-2 text-stone-900">{stats.pendingPickups + stats.pendingWithdrawals}</p>
+          <p className="text-xs text-amber-600 mt-1">{stats.pendingPickups} pickup, {stats.pendingWithdrawals} penarikan</p>
+        </div>
+      </div>
 
-        <AdminGlassCard className="p-5 sm:p-6">
-          <h2 className="mb-4 text-lg font-semibold text-white">Berat per Kategori (Bulan Ini)</h2>
-          {monthlyByCategory.length > 0 ? (
-            <div className="space-y-3">
-              {monthlyByCategory.map((item, i) => {
-                const max = monthlyByCategory[0].weight || 1;
-                const pct = Math.round((item.weight / max) * 100);
-                const colors = ["bg-emerald-500", "bg-blue-500", "bg-violet-500", "bg-amber-500", "bg-rose-500", "bg-cyan-500", "bg-indigo-500", "bg-teal-500"];
-                return (
-                  <div key={item.name}>
-                    <div className="mb-1 flex items-center justify-between text-sm">
-                      <span className="font-medium text-slate-200">{item.name}</span>
-                      <span className="font-semibold text-white">{item.weight} kg</span>
-                    </div>
-                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
-                      <div className={`h-full rounded-full transition-all duration-700 ${colors[i % colors.length]}`} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Weekly Trend */}
+        <div className="rounded-3xl border border-white/60 bg-white/75 p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-stone-900 mb-4">Tren Setoran Mingguan (kg)</h2>
+          {weeklyData.length > 0 ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={weeklyData}>
+                  <defs>
+                    <linearGradient id="colorKg" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#78716c" }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#78716c" }} domain={[0, 'auto']} width={30} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#1f2937",
+                      border: "none",
+                      borderRadius: "12px",
+                      padding: "12px",
+                      color: "white",
+                      fontSize: 12,
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="kg"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorKg)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           ) : (
-            <div className="flex h-48 items-center justify-center text-slate-500">Belum ada data bulan ini.</div>
+            <div className="h-64 flex items-center justify-center text-stone-500">
+              <p>Belum ada data tren</p>
+            </div>
           )}
-        </AdminGlassCard>
-      </section>
+        </div>
 
-      <section className="grid gap-6 lg:grid-cols-2">
-        <AdminGlassCard className="overflow-hidden">
-          <div className="flex items-center justify-between border-b border-white/8 px-5 py-4">
-            <h2 className="text-base font-semibold text-white">Transaksi Terbaru</h2>
-            <Link href="/admin/transaksi" className="text-xs font-medium text-emerald-400 hover:text-emerald-300">
-              Lihat Semua {"->"}
-            </Link>
-          </div>
-          <div className="divide-y divide-white/8">
-            {recentTx.length > 0 ? (
-              recentTx.map((tx) => (
-                <div key={String(tx.id)} className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-white/5">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-100">{String(tx.user_id)}</p>
-                    <p className="truncate text-xs text-slate-400">
-                      {String(tx.waste_type)} · {Number(tx.estimated_weight)}kg · {String(tx.tx_id)}
-                    </p>
+        {/* Category Distribution */}
+        <div className="rounded-3xl border border-white/60 bg-white/75 p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-stone-900 mb-4">Distribusi Sampah</h2>
+          {categoryData.length > 0 ? (
+            <div className="h-64 flex items-center">
+              <div className="w-1/2">
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="w-1/2 space-y-2">
+                {categoryData.map((cat, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 rounded-full" style={{ backgroundColor: cat.color }} />
+                      <span className="text-sm text-stone-700">{cat.name}</span>
+                    </div>
+                    <span className="text-sm font-semibold text-stone-900">{cat.value} kg</span>
                   </div>
-                  <span
-                    className={`inline-flex flex-shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                      tx.status === "pending"
-                        ? "bg-amber-100 text-amber-800"
-                        : tx.status === "verified"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {transactionStatusLabel[tx.status as keyof typeof transactionStatusLabel] || String(tx.status)}
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-stone-500">
+              <p>Belum ada data distribusi</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom Row: Pending & Recent */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Pending Pickups */}
+        <div className="rounded-3xl border border-white/60 bg-white/75 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-stone-900">Pending Pickup</h2>
+            <Link href="/admin/pickups" className="text-sm text-emerald-600 hover:text-emerald-700">Lihat Semua →</Link>
+          </div>
+          {pendingPickups.length > 0 ? (
+            <div className="space-y-3">
+              {pendingPickups.map((p: any) => (
+                <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-stone-50 hover:bg-stone-100 transition">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <Recycle className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-stone-900">{p.user_name || 'User'}</p>
+                      <p className="text-xs text-stone-500">{p.waste_name} • {p.weight_kg} kg</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-stone-700">
+                    {formatCurrency(p.estimated_reward)}
                   </span>
                 </div>
-              ))
-            ) : (
-              <p className="p-4 text-center text-sm text-slate-500">Belum ada transaksi</p>
-            )}
-          </div>
-        </AdminGlassCard>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-stone-500">
+              <CheckCircle className="h-12 w-12 mx-auto mb-2 text-emerald-400" />
+              <p>Semua pickup sudah diproses</p>
+            </div>
+          )}
+        </div>
 
-        <AdminGlassCard className="overflow-hidden">
-          <div className="flex items-center justify-between border-b border-white/8 px-5 py-4">
-            <h2 className="text-base font-semibold text-white">Aktivitas Terakhir</h2>
-            <Link href="/admin/log" className="text-xs font-medium text-emerald-400 hover:text-emerald-300">
-              Lihat Semua {"->"}
-            </Link>
+        {/* Recent Transactions */}
+        <div className="rounded-3xl border border-white/60 bg-white/75 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-stone-900">Transaksi Terbaru</h2>
+            <Link href="/admin/transaksi" className="text-sm text-emerald-600 hover:text-emerald-700">Lihat Semua →</Link>
           </div>
-          <div className="divide-y divide-white/8">
-            {recentLogs.length > 0 ? (
-              recentLogs.map((log) => (
-                <div key={log.id} className="px-5 py-3 transition-colors hover:bg-white/5">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-slate-100">{log.action}</p>
-                    <span className="flex-shrink-0 text-[10px] text-slate-500">{log.adminName}</span>
+          {recentTransactions.length > 0 ? (
+            <div className="space-y-3">
+              {recentTransactions.slice(0, 5).map((tx: any) => (
+                <div key={tx.id} className="flex items-center justify-between p-3 rounded-xl bg-stone-50 hover:bg-stone-100 transition">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      tx.type === 'penarikan' ? 'bg-red-100' : 'bg-emerald-100'
+                    }`}>
+                      {tx.type === 'penarikan' ? (
+                        <TrendingUp className="h-5 w-5 text-red-600" />
+                      ) : (
+                        <Recycle className="h-5 w-5 text-emerald-600" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium text-stone-900">{tx.user_name || 'User'}</p>
+                      <p className="text-xs text-stone-500">{tx.description || tx.type}</p>
+                    </div>
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-slate-400">
-                    {log.targetId || log.targetType} - {log.details}
-                  </p>
+                  <div className="text-right">
+                    <p className={`text-sm font-semibold ${tx.amount > 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                      {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
+                    </p>
+                    <p className="text-xs text-stone-400">{formatTime(tx.created_at)}</p>
+                  </div>
                 </div>
-              ))
-            ) : (
-              <p className="p-4 text-center text-sm text-slate-500">Belum ada log aktivitas</p>
-            )}
-          </div>
-        </AdminGlassCard>
-      </section>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-stone-500">
+              <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>Belum ada transaksi</p>
+            </div>
+          )}
+        </div>
+      </div>
 
-      <section className="grid gap-4 sm:grid-cols-3">
-        <Link href="/admin/transaksi" className="glass-dark-panel-soft group flex items-center gap-4 rounded-[28px] p-5 transition-all hover:-translate-y-0.5 hover:border-emerald-400/20 hover:bg-white/8">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-300 transition-transform group-hover:scale-110">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
-            </svg>
+      {/* Top Waste Section */}
+      <div className="rounded-3xl border border-white/60 bg-white/75 p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-stone-900 mb-4">Sampah Paling Sering Disetor</h2>
+        {topWaste.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {topWaste.map((waste, i) => (
+              <div key={i} className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-2xl">
+                    {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}
+                  </span>
+                  <div>
+                    <p className="font-semibold text-stone-900">{waste.name}</p>
+                    <p className="text-xs text-stone-500">{waste.percent}% dari total</p>
+                  </div>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-stone-200">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400"
+                    style={{ width: `${waste.percent}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-lg font-bold text-stone-900">{waste.kg.toFixed(1)} kg</p>
+              </div>
+            ))}
           </div>
-          <div>
-            <p className="font-semibold text-slate-100">Validasi Transaksi</p>
-            <p className="text-xs text-slate-400">Proses setoran masuk</p>
+        ) : (
+          <div className="text-center py-8 text-stone-500">
+            <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>Belum ada data sampah</p>
           </div>
-        </Link>
-        <Link href="/admin/nasabah" className="glass-dark-panel-soft group flex items-center gap-4 rounded-[28px] p-5 transition-all hover:-translate-y-0.5 hover:border-emerald-400/20 hover:bg-white/8">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300 transition-transform group-hover:scale-110">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-            </svg>
-          </div>
-          <div>
-            <p className="font-semibold text-slate-100">Kelola Nasabah</p>
-            <p className="text-xs text-slate-400">Verifikasi dan manajemen akun</p>
-          </div>
-        </Link>
-        <Link href="/admin/laporan" className="glass-dark-panel-soft group flex items-center gap-4 rounded-[28px] p-5 transition-all hover:-translate-y-0.5 hover:border-emerald-400/20 hover:bg-white/8">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/15 text-blue-300 transition-transform group-hover:scale-110">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-          </div>
-          <div>
-            <p className="font-semibold text-slate-100">Buat Laporan</p>
-            <p className="text-xs text-slate-400">Export data CSV / cetak PDF</p>
-          </div>
-        </Link>
-      </section>
+        )}
+      </div>
     </div>
-  );
+  )
 }

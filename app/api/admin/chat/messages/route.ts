@@ -1,0 +1,67 @@
+import { neon } from '@neondatabase/serverless'
+
+const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+export async function GET(req: Request) {
+  const authHeader = req.headers.get('x-admin-secret')
+
+  if (authHeader !== ADMIN_SECRET) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { searchParams } = new URL(req.url)
+  const roomId = searchParams.get('roomId')
+  const after = searchParams.get('after') ?? '1970-01-01'
+
+  if (!roomId) {
+    return Response.json({ error: 'roomId is required' }, { status: 400 })
+  }
+
+  const rows = await sql`
+    SELECT * FROM chat_messages
+    WHERE room_id = ${roomId}
+    AND created_at > ${after}
+    ORDER BY created_at ASC
+  `
+
+  if (rows.length > 0) {
+    await sql`
+      UPDATE chat_rooms
+      SET unread_admin = 0
+      WHERE id = ${roomId}
+    `
+  }
+
+  return Response.json(rows)
+}
+
+export async function POST(req: Request) {
+  const authHeader = req.headers.get('x-admin-secret')
+
+  if (authHeader !== ADMIN_SECRET) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { roomId, senderName, content } = await req.json()
+
+  if (!roomId || !senderName || !content) {
+    return Response.json({ error: 'roomId, senderName, and content are required' }, { status: 400 })
+  }
+
+  const msg = await sql`
+    INSERT INTO chat_messages (room_id, sender_role, sender_name, content)
+    VALUES (${roomId}, 'admin', ${senderName}, ${content})
+    RETURNING *
+  `
+
+  await sql`
+    UPDATE chat_rooms
+    SET last_message = ${content},
+        last_message_at = NOW(),
+        unread_user = unread_user + 1
+    WHERE id = ${roomId}
+  `
+
+  return Response.json(msg[0])
+}

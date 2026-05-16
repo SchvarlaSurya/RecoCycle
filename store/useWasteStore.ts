@@ -32,12 +32,16 @@ interface WasteStore {
   transactions: Transaction[];
   withdrawals: Withdrawal[];
   notifications: AppNotification[];
+  userExp: number;
+  userTier: string;
   isHydrated: boolean;
   initStore: (balance: number, transactions: Transaction[], withdrawals: Withdrawal[]) => void;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'status'>) => void;
-  requestWithdrawal: (withdrawal: Omit<Withdrawal, 'id' | 'status' | 'date'>) => boolean;
+  requestWithdrawal: (withdrawalRequest: Omit<Withdrawal, 'id' | 'status' | 'date'>) => boolean;
   addNotification: (notification: Omit<AppNotification, 'id' | 'read' | 'date'>) => void;
+  setNotifications: (notifications: AppNotification[]) => void;
   markNotificationsAsRead: () => void;
+  setUserTier: (exp: number, tier: string) => void;
 }
 
 export const useWasteStore = create<WasteStore>()((set, get) => ({
@@ -45,6 +49,8 @@ export const useWasteStore = create<WasteStore>()((set, get) => ({
       transactions: [],
       withdrawals: [],
       notifications: [],
+      userExp: 0,
+      userTier: 'bronze',
       isHydrated: false,
       initStore: (balance, transactions, withdrawals) => {
         set({ balance, transactions, withdrawals, isHydrated: true });
@@ -56,7 +62,7 @@ export const useWasteStore = create<WasteStore>()((set, get) => ({
           id,
           status: 'pending', // Awaiting admin verification
         };
-        
+
         const newNotification: AppNotification = {
           id: `NOTIF-${Date.now()}`,
           title: "Setoran Diajukan",
@@ -64,7 +70,7 @@ export const useWasteStore = create<WasteStore>()((set, get) => ({
           date: new Date().toISOString(),
           read: false,
         };
-        
+
         set((state) => ({
           transactions: [newTx, ...state.transactions],
           // Balance is NOT updated here; it's re-fetched from DB after verification
@@ -77,7 +83,7 @@ export const useWasteStore = create<WasteStore>()((set, get) => ({
         const totalPendingOrSent = state.withdrawals
           .filter(w => w.status !== 'Ditolak')
           .reduce((acc, w) => acc + w.amount, 0);
-        
+
         // Saldo yang benar-benar bisa ditarik
         const availableBalance = state.balance - totalPendingOrSent;
 
@@ -88,7 +94,7 @@ export const useWasteStore = create<WasteStore>()((set, get) => ({
             date: new Date().toISOString().split('T')[0],
             status: 'Menunggu Verifikasi', // saldo tidak langsung berkurang, masih pending
           };
-          
+
           const newNotification: AppNotification = {
             id: `NOTIF-${Date.now()}`,
             title: "Penarikan Diajukan",
@@ -96,7 +102,7 @@ export const useWasteStore = create<WasteStore>()((set, get) => ({
             date: new Date().toISOString(),
             read: false,
           };
-          
+
           set((s) => ({
             withdrawals: [newWithdrawal, ...s.withdrawals],
             notifications: [newNotification, ...s.notifications]
@@ -115,40 +121,62 @@ export const useWasteStore = create<WasteStore>()((set, get) => ({
           }, ...s.notifications]
         }));
       },
+      setNotifications: (notifications) => {
+        set({ notifications })
+      },
       markNotificationsAsRead: () => {
         set((s) => ({
           notifications: s.notifications.map(n => ({ ...n, read: true }))
         }));
+      },
+      setUserTier: (exp, tier) => {
+        set({ userExp: exp, userTier: tier })
       }
   }));
 
+// EXP-based tier system
 export function useUserTier() {
-  const transactions = useWasteStore((state) => state.transactions);
-  const totalWeight = transactions.reduce((acc, tx) => acc + tx.weight, 0);
+  const exp = useWasteStore((state) => state.userExp);
+  const storedTier = useWasteStore((state) => state.userTier);
 
-  let tier = "Bronze";
+  // Calculate tier based on EXP
+  let tier = storedTier || "bronze";
   let bonusPercentage = 0;
-  let nextTierWeight = 50;
+  let expForNextTier = 1000;
   let tierColor = "text-amber-700 bg-amber-100 ring-amber-600/20"; // Bronze
+  let tierBadge = "🥉";
 
-  if (totalWeight >= 500) {
-    tier = "Platinum";
+  if (exp >= 5000) {
+    tier = "gold";
     bonusPercentage = 10;
-    nextTierWeight = -1; // Max tier
-    tierColor = "text-sky-700 bg-sky-100 ring-sky-600/20";
-  } else if (totalWeight >= 200) {
-    tier = "Gold";
-    bonusPercentage = 5;
-    nextTierWeight = 500;
-    tierColor = "text-yellow-800 bg-yellow-100 ring-yellow-600/20";
-  } else if (totalWeight >= 50) {
-    tier = "Silver";
+    expForNextTier = 0;
+    tierColor = "text-yellow-700 bg-yellow-100 ring-yellow-600/20";
+    tierBadge = "🥇";
+  } else if (exp >= 1000) {
+    tier = "silver";
     bonusPercentage = 3;
-    nextTierWeight = 200;
-    tierColor = "text-slate-700 bg-slate-200 ring-slate-600/20";
+    expForNextTier = 5000;
+    tierColor = "text-stone-600 bg-stone-200 ring-stone-600/20";
+    tierBadge = "🥈";
+  } else {
+    tier = "bronze";
+    bonusPercentage = 0;
+    expForNextTier = 1000;
+    tierColor = "text-amber-700 bg-amber-100 ring-amber-600/20";
+    tierBadge = "🥉";
   }
 
-  const progressToNext = nextTierWeight > 0 ? Math.min((totalWeight / nextTierWeight) * 100, 100) : 100;
+  const progressToNext = expForNextTier > 0
+    ? Math.min((exp / expForNextTier) * 100, 100)
+    : 100;
 
-  return { tier, totalWeight, bonusPercentage, nextTierWeight, progressToNext, tierColor };
+  return {
+    tier,
+    exp,
+    bonusPercentage,
+    expForNextTier,
+    progressToNext,
+    tierColor,
+    tierBadge
+  };
 }
