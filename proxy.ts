@@ -2,6 +2,11 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+const ADMIN_USER_IDS = [
+  'user_3COcIsVTwrcTV5undqfBnMdewWp', // Surya
+]
+
 const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 
@@ -9,8 +14,23 @@ export default clerkMiddleware(async (auth, req) => {
   const authObj = await auth();
   const path = req.nextUrl.pathname;
 
-  // Jika sudah login, root dan auth pages langsung ke dashboard
+  // Check for admin secret header on API routes
+  if (path.startsWith('/api/admin')) {
+    const adminSecret = req.headers.get('x-admin-secret')
+    if (adminSecret !== ADMIN_SECRET) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Admin access required' },
+        { status: 401 }
+      )
+    }
+  }
+
+  // Jika sudah login, root dan auth pages langsung ke dashboard/admin
   if (authObj.userId && (path === "/" || path.startsWith("/login") || path.startsWith("/register"))) {
+    // Check if user is admin
+    if (ADMIN_USER_IDS.includes(authObj.userId)) {
+      return NextResponse.redirect(new URL("/admin", req.url));
+    }
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
@@ -19,21 +39,16 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // Admin route protection - FAIL CLOSED (deny by default on error)
-  if (authObj.userId && isAdminRoute(req)) {
-    try {
-      const client = await clerkClient();
-      const user = await client.users.getUser(authObj.userId);
-      const isAdmin = user.publicMetadata?.isAdmin === true;
+  // Jika admin user akses /dashboard, redirect ke /admin
+  if (authObj.userId && path.startsWith('/dashboard')) {
+    if (ADMIN_USER_IDS.includes(authObj.userId)) {
+      return NextResponse.redirect(new URL("/admin", req.url));
+    }
+  }
 
-      if (!isAdmin) {
-        const dashboardUrl = new URL("/dashboard", req.url);
-        dashboardUrl.searchParams.set("access", "denied");
-        return NextResponse.redirect(dashboardUrl);
-      }
-    } catch (error) {
-      console.error("Admin check failed - denying access:", error);
-      // FAIL CLOSED: deny access on any error (don't allow through)
+  // Admin route protection - only allow specific admin users
+  if (authObj.userId && isAdminRoute(req)) {
+    if (!ADMIN_USER_IDS.includes(authObj.userId)) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
   }

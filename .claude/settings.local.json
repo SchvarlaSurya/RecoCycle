@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(curl -s http://localhost:3000/api/dashboard)",
+      "Bash(curl *)",
+      "WebFetch(domain:minimax-algeng-chat-tts-us.oss-us-east-1.aliyuncs.com)",
+      "WebFetch(domain:localhost)",
+      "PowerShell(netstat *)",
+      "PowerShell(Get-Process *)",
+      "Bash(netstat -tlnp)",
+      "Bash(npx playwright *)",
+      "Bash(node qa-test.js)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(taskkill /PID 17812 /F)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
