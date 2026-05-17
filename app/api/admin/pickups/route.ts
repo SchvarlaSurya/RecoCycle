@@ -9,6 +9,90 @@ function getSql() {
   return neon(process.env.DATABASE_URL)
 }
 
+// Ensure all required tables and columns exist
+async function ensureSchema() {
+  try {
+    // Create pickups table if not exists
+    await getSql()`
+      CREATE TABLE IF NOT EXISTS pickups (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR(255) NOT NULL,
+        user_name VARCHAR(255) DEFAULT 'User',
+        waste_type VARCHAR(100) NOT NULL,
+        waste_name VARCHAR(255) NOT NULL,
+        weight_kg DECIMAL(10,2) NOT NULL,
+        pickup_date DATE NOT NULL,
+        time_slot VARCHAR(50) NOT NULL,
+        address TEXT NOT NULL,
+        notes TEXT,
+        status VARCHAR(50) DEFAULT 'pending',
+        estimated_reward DECIMAL(12,2) DEFAULT 0,
+        actual_reward DECIMAL(12,2),
+        verified_by VARCHAR(255),
+        verified_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `
+
+    // Create user_balances table if not exists
+    await getSql()`
+      CREATE TABLE IF NOT EXISTS user_balances (
+        user_id VARCHAR(255) PRIMARY KEY,
+        balance DECIMAL(12,2) DEFAULT 0,
+        total_setoran DECIMAL(12,2) DEFAULT 0,
+        total_reward DECIMAL(12,2) DEFAULT 0,
+        total_penarikan DECIMAL(12,2) DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `
+
+    // Create transactions table if not exists
+    await getSql()`
+      CREATE TABLE IF NOT EXISTS transactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR(255) NOT NULL,
+        user_name VARCHAR(255) NOT NULL,
+        type VARCHAR(50) NOT NULL,
+        category VARCHAR(100),
+        description TEXT,
+        amount DECIMAL(12,2) NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        reference_id VARCHAR(255),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `
+
+    // Create users table if not exists
+    await getSql()`
+      CREATE TABLE IF NOT EXISTS users (
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255),
+        balance DECIMAL(12,2) DEFAULT 0,
+        tier VARCHAR(50) DEFAULT 'bronze',
+        exp INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `
+
+    // Create notifications table if not exists
+    await getSql()`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR(255) NOT NULL,
+        type VARCHAR(50) DEFAULT 'announcement',
+        title VARCHAR(255) NOT NULL,
+        message TEXT,
+        is_read BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `
+  } catch (e) {
+    console.log('Schema check skipped:', e)
+  }
+}
+
 async function ensureColumns() {
   try {
     // Transactions table columns
@@ -35,10 +119,11 @@ export async function GET(req: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { searchParams } = new URL(req.url)
-  const status = searchParams.get('status')
-
   try {
+    // Ensure schema exists
+    await ensureSchema()
+    await ensureColumns()
+
     let pickups
 
     // Map status filter to database values
@@ -88,7 +173,8 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Ensure all columns exist
+    // Ensure all tables and columns exist
+    await ensureSchema()
     await ensureColumns()
 
     const body = await req.json()
