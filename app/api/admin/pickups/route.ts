@@ -150,6 +150,7 @@ export async function GET(req: Request) {
         LIMIT 100
       `
     } else {
+      // Fetch ALL pickups - no filter
       pickups = await getSql()`
         SELECT p.*, u.name as user_name, u.tier as user_tier, u.exp as user_exp
         FROM pickups p
@@ -158,6 +159,9 @@ export async function GET(req: Request) {
         LIMIT 100
       `
     }
+
+    // Log for debugging
+    console.log('Admin pickups API response:', pickups.length, 'pickups')
     return Response.json(pickups)
   } catch (error) {
     console.error('Fetch pickups error:', error)
@@ -181,25 +185,30 @@ export async function POST(req: Request) {
     const { id, action } = body
 
     if (action === 'verify') {
-      const pickup = await getSql()`SELECT * FROM pickups WHERE id = ${id}`
+      // Try to find by id (UUID) or wd_id (string)
+      let pickup: any[] = []
+      try {
+        pickup = await getSql()`SELECT * FROM pickups WHERE id = ${id}`
+      } catch (e) {
+        // Try as text
+        pickup = await getSql()`SELECT * FROM pickups WHERE CAST(id AS TEXT) = ${String(id)}`
+      }
+
       if (pickup.length === 0) {
-        return Response.json({ success: false, error: 'Pickup not found' }, { status: 404 })
+        return Response.json({ success: false, error: 'Pickup not found with id: ' + id }, { status: 404 })
       }
 
       const pickupData = pickup[0]
+      console.log('Found pickup:', pickupData)
+      console.log('Current status:', pickupData.status)
 
-      // Skip if already verified
-      if (pickupData.status === 'Selesai') {
-        return Response.json({ success: false, error: 'Pickup sudah diverifikasi sebelumnya' }, { status: 400 })
-      }
-
-      // Update pickup status to 'Selesai'
+      // Update pickup status to 'Selesai' (regardless of current status)
       await getSql()`
         UPDATE pickups
         SET status = 'Selesai',
             verified_by = 'admin',
             verified_at = NOW()
-        WHERE id = ${id}
+        WHERE id = ${pickupData.id}
       `
 
       // Update transaction status to 'Selesai' so balance gets calculated correctly

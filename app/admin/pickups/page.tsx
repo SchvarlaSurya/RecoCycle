@@ -40,9 +40,16 @@ export default function AdminPickupsPage() {
       if (res.ok) {
         const data = await res.json()
         console.log('Fetched pickups:', data)
-        setAllPickups(Array.isArray(data) ? data : [])
+        if (Array.isArray(data)) {
+          setAllPickups(data)
+        } else {
+          console.error('Response is not array:', data)
+          setAllPickups([])
+        }
       } else {
         console.error('Failed to fetch pickups:', res.status)
+        const text = await res.text()
+        console.error('Response:', text)
       }
     } catch (e) {
       console.error('Failed to fetch pickups:', e)
@@ -56,6 +63,7 @@ export default function AdminPickupsPage() {
   }, [])
 
   const handleVerify = async (id: string) => {
+    if (!confirm('Verifikasi setoran ini?')) return
     setActionLoading(id)
     try {
       const res = await fetch('/api/admin/pickups', {
@@ -67,8 +75,9 @@ export default function AdminPickupsPage() {
         body: JSON.stringify({ id, action: 'verify' })
       })
       const result = await res.json()
+      console.log('Verify result:', result)
       if (result && result.success) {
-        alert(`Pickup diverifikasi!\n+${result.expEarned || 0} EXP untuk user\nTier: ${result.newTier}`)
+        alert(`Berhasil!\n+${result.expEarned || 0} EXP\nTier: ${result.newTier}`)
         fetchAllPickups()
       } else {
         alert('Gagal: ' + (result?.error || 'Unknown error'))
