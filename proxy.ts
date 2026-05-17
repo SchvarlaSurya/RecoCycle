@@ -3,16 +3,31 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
-const ADMIN_USER_IDS = [
-  'user_3COcIsVTwrcTV5undqfBnMdewWp', // Surya
+// Static fallback - hanya untuk development/fallback
+const STATIC_ADMIN_IDS = [
+  'user_3COcIsVTwrcTV5undqfBnMdewWp',
 ]
 
 const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 
+// Check if user is admin - dynamic check from Clerk
+async function isAdminUser(userId: string): Promise<boolean> {
+  try {
+    const client = await clerkClient()
+    const user = await client.users.getUser(userId)
+    const isAdmin = user.publicMetadata?.isAdmin === true
+    return isAdmin
+  } catch (error) {
+    console.error('Failed to check admin status:', error)
+    // Fallback to static list if Clerk API fails
+    return STATIC_ADMIN_IDS.includes(userId)
+  }
+}
+
 export default clerkMiddleware(async (auth, req) => {
-  const authObj = await auth();
-  const path = req.nextUrl.pathname;
+  const authObj = await auth()
+  const path = req.nextUrl.pathname
 
   // Check for admin secret header on API routes
   if (path.startsWith('/api/admin')) {
@@ -27,29 +42,31 @@ export default clerkMiddleware(async (auth, req) => {
 
   // Jika sudah login, root dan auth pages langsung ke dashboard/admin
   if (authObj.userId && (path === "/" || path.startsWith("/login") || path.startsWith("/register"))) {
-    // Check if user is admin
-    if (ADMIN_USER_IDS.includes(authObj.userId)) {
-      return NextResponse.redirect(new URL("/admin", req.url));
+    const isAdmin = await isAdminUser(authObj.userId)
+    if (isAdmin) {
+      return NextResponse.redirect(new URL("/admin", req.url))
     }
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 
   // Jika belum login, protect dashboard
   if (!authObj.userId && isProtectedRoute(req)) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL("/login", req.url))
+  }
+
+  // Admin route protection - dynamic check
+  if (authObj.userId && isAdminRoute(req)) {
+    const isAdmin = await isAdminUser(authObj.userId)
+    if (!isAdmin) {
+      return NextResponse.redirect(new URL("/dashboard", req.url))
+    }
   }
 
   // Jika admin user akses /dashboard, redirect ke /admin
   if (authObj.userId && path.startsWith('/dashboard')) {
-    if (ADMIN_USER_IDS.includes(authObj.userId)) {
-      return NextResponse.redirect(new URL("/admin", req.url));
-    }
-  }
-
-  // Admin route protection - only allow specific admin users
-  if (authObj.userId && isAdminRoute(req)) {
-    if (!ADMIN_USER_IDS.includes(authObj.userId)) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+    const isAdmin = await isAdminUser(authObj.userId)
+    if (isAdmin) {
+      return NextResponse.redirect(new URL("/admin", req.url))
     }
   }
 });
