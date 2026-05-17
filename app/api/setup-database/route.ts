@@ -154,6 +154,58 @@ export async function POST() {
       )
     `
 
+    // Create waste_catalog table
+    await getSql()`
+      CREATE TABLE IF NOT EXISTS waste_catalog (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(150) NOT NULL,
+        category VARCHAR(50) NOT NULL,
+        price_per_kg DECIMAL(12,2) NOT NULL,
+        previous_price DECIMAL(12,2),
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `
+
+    // Create tier_configs table
+    await getSql()`
+      CREATE TABLE IF NOT EXISTS tier_configs (
+        id SERIAL PRIMARY KEY,
+        tier_name VARCHAR(50) UNIQUE NOT NULL,
+        min_weight_kg DECIMAL(12,2) NOT NULL,
+        max_weight_kg DECIMAL(12,2),
+        bonus_percentage DECIMAL(5,2) NOT NULL,
+        description TEXT,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `
+
+    // Seed waste_catalog data
+    await getSql()`
+      INSERT INTO waste_catalog (id, name, category, price_per_kg, is_active) VALUES
+        ('plastic', 'Plastik Campur', 'anorganik', 4200, true),
+        ('paper', 'Kertas dan Kardus', 'anorganik', 2800, true),
+        ('metal', 'Logam Ringan', 'anorganik', 7600, true),
+        ('organic', 'Sisa Organik Kering', 'organik', 1700, true),
+        ('battery', 'Baterai Rumah Tangga', 'khusus', 9800, true),
+        ('electronics', 'Elektronik Kecil', 'khusus', 13200, true),
+        ('glass', 'Botol Kaca', 'anorganik', 3500, true),
+        ('oil', 'Minyak Jelantah', 'organik', 4000, true)
+      ON CONFLICT (id) DO NOTHING
+    `
+
+    // Seed tier_configs data
+    await getSql()`
+      INSERT INTO tier_configs (tier_name, min_weight_kg, max_weight_kg, bonus_percentage, description, is_active) VALUES
+        ('bronze', 0, 49, 0, 'Bronze tier: 0-49kg', true),
+        ('silver', 50, 199, 3, 'Silver tier: 50-199kg', true),
+        ('gold', 200, 499, 5, 'Gold tier: 200-499kg', true),
+        ('platinum', 500, NULL, 10, 'Platinum tier: 500+kg', true)
+      ON CONFLICT (tier_name) DO NOTHING
+    `
+
     // Create indexes
     await getSql()`CREATE INDEX IF NOT EXISTS idx_pickups_user_id ON pickups(user_id)`
     await getSql()`CREATE INDEX IF NOT EXISTS idx_pickups_status ON pickups(status)`
@@ -168,7 +220,7 @@ export async function POST() {
     return Response.json({
       success: true,
       message: 'All database tables created successfully!',
-      tables: ['pickups', 'withdrawals', 'user_balances', 'transactions', 'users', 'notifications']
+      tables: ['pickups', 'withdrawals', 'user_balances', 'transactions', 'users', 'notifications', 'waste_catalog', 'tier_configs', 'user_addresses']
     })
   } catch (error) {
     console.error('Setup error:', error)
