@@ -44,8 +44,17 @@ export async function GET(req: Request) {
     results.push('✓ waste_catalog table created')
 
     // 3. Seed waste_catalog data
+    // Add missing columns if they don't exist in existing table
+    try {
+      await getSql()`ALTER TABLE waste_catalog ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`
+    } catch (e) {}
+    try {
+      await getSql()`ALTER TABLE waste_catalog ADD COLUMN IF NOT EXISTS previous_price DECIMAL(12,2)`
+    } catch (e) {}
+
     await getSql()`
-      INSERT INTO waste_catalog (id, name, category, price_per_kg, is_active) VALUES
+      INSERT INTO waste_catalog (id, name, category, price_per_kg, is_active)
+      VALUES
         ('plastic', 'Plastik Campur', 'anorganik', 4200, true),
         ('paper', 'Kertas dan Kardus', 'anorganik', 2800, true),
         ('metal', 'Logam Ringan', 'anorganik', 7600, true),
@@ -54,7 +63,11 @@ export async function GET(req: Request) {
         ('electronics', 'Elektronik Kecil', 'khusus', 13200, true),
         ('glass', 'Botol Kaca', 'anorganik', 3500, true),
         ('oil', 'Minyak Jelantah', 'organik', 4000, true)
-      ON CONFLICT (id) DO NOTHING
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        category = EXCLUDED.category,
+        price_per_kg = EXCLUDED.price_per_kg,
+        is_active = EXCLUDED.is_active
     `
     results.push('✓ waste_catalog seeded (8 items)')
 
@@ -74,13 +87,24 @@ export async function GET(req: Request) {
     results.push('✓ tier_configs table created')
 
     // 5. Seed tier_configs data
+    // Add is_active column if missing
+    try {
+      await getSql()`ALTER TABLE tier_configs ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`
+    } catch (e) {}
+
     await getSql()`
-      INSERT INTO tier_configs (tier_name, min_weight_kg, max_weight_kg, bonus_percentage, description, is_active) VALUES
+      INSERT INTO tier_configs (tier_name, min_weight_kg, max_weight_kg, bonus_percentage, description, is_active)
+      VALUES
         ('bronze', 0, 49, 0, 'Bronze tier: 0-49kg', true),
         ('silver', 50, 199, 3, 'Silver tier: 50-199kg', true),
         ('gold', 200, 499, 5, 'Gold tier: 200-499kg', true),
         ('platinum', 500, NULL, 10, 'Platinum tier: 500+kg', true)
-      ON CONFLICT (tier_name) DO NOTHING
+      ON CONFLICT (tier_name) DO UPDATE SET
+        min_weight_kg = EXCLUDED.min_weight_kg,
+        max_weight_kg = EXCLUDED.max_weight_kg,
+        bonus_percentage = EXCLUDED.bonus_percentage,
+        description = EXCLUDED.description,
+        is_active = EXCLUDED.is_active
     `
     results.push('✓ tier_configs seeded (4 tiers)')
 
