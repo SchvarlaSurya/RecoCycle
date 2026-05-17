@@ -7,8 +7,8 @@ export function ProgressBar() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const barRef = useRef<HTMLDivElement>(null)
-  const completeTimerRef = useRef<ReturnType<typeof setTimeout>>()
-  const crawlTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const completeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const crawlTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
     const bar = barRef.current

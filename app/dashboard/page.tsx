@@ -785,7 +785,7 @@ export default function DashboardPage() {
           })
         } else {
           // Even if global stats fail, still set user balance
-          setDashboardData(prev => ({
+          setDashboardData((prev: typeof dashboardData) => ({
             ...prev,
             balance: userBalance
           }))

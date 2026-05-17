@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless'
 
 const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
 
 // This API syncs EXP for all users based on their verified pickups
 export async function POST(req: Request) {

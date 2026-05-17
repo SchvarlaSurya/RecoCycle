@@ -246,19 +246,9 @@ export default function SettingsPage() {
               </h2>
 
               <div className="mt-6 flex items-center gap-5">
-                <div className="relative">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-2xl font-bold text-emerald-700">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-2xl font-bold text-emerald-700">
                     {isLoaded ? initials : "..."}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => openUserProfile()}
-                    className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
-                    title="Ubah Foto"
-                  >
-                    <Camera className="h-4 w-4" />
-                  </button>
-                </div>
                 <div>
                   <h3 className="text-lg font-bold text-stone-900">{isLoaded ? fullName : "Memuat..."}</h3>
                   <p className="text-sm text-stone-600">Member sejak {memberSince}</p>

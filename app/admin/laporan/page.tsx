@@ -317,7 +317,7 @@ export default function LaporanPage() {
                           <td className="px-5 py-3 font-mono text-xs text-stone-500">{String(tx.id).slice(0, 8).toUpperCase()}</td>
                           <td className="px-5 py-3 font-medium text-stone-900">{tx.user_name || tx.user_id || 'User'}</td>
                           <td className="px-5 py-3 text-stone-600">{tx.description || tx.type}</td>
-                          <td className="px-5 py-3 text-right text-stone-600">{(tx as any).weight_kg ? `${tx.weight_kg} kg` : '-'}</td>
+                          <td className="px-5 py-3 text-right text-stone-600">{(tx as any).weight_kg ? `${(tx as any).weight_kg} kg` : '-'}</td>
                           <td className="px-5 py-3 text-right text-stone-600">Rp {Math.abs(tx.amount).toLocaleString('id-ID')}</td>
                           <td className="px-5 py-3 text-right text-emerald-600 font-semibold">Rp {Math.abs(tx.amount).toLocaleString('id-ID')}</td>
                           <td className="px-5 py-3 text-stone-500">{new Date(tx.created_at).toLocaleDateString('id-ID')}</td>
@@ -420,7 +420,7 @@ export default function LaporanPage() {
                       <td className="px-5 py-3 font-mono text-xs text-stone-500">{String(tx.id).slice(0, 8).toUpperCase()}</td>
                       <td className="px-5 py-3 font-medium text-stone-900">{tx.user_name || tx.user_id || 'User'}</td>
                       <td className="px-5 py-3 text-stone-600">{tx.description || tx.type}</td>
-                      <td className="px-5 py-3 text-right text-stone-600">{(tx as any).weight_kg ? `${tx.weight_kg} kg` : '-'}</td>
+                      <td className="px-5 py-3 text-right text-stone-600">{(tx as any).weight_kg ? `${(tx as any).weight_kg} kg` : '-'}</td>
                       <td className="px-5 py-3 text-right text-stone-600">Rp {Math.abs(tx.amount).toLocaleString('id-ID')}</td>
                       <td className="px-5 py-3 text-right text-emerald-600 font-semibold">Rp {Math.abs(tx.amount).toLocaleString('id-ID')}</td>
                       <td className="px-5 py-3 text-stone-500">{new Date(tx.created_at).toLocaleDateString('id-ID')}</td>

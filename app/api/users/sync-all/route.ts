@@ -6,12 +6,13 @@ const sql = neon(process.env.DATABASE_URL!)
 export async function POST(req: Request) {
   try {
     // Get all users from Clerk
-    const users = await clerkClient.users.getUserList({ limit: 100 })
+    const clerk = await clerkClient()
+    const users = await clerk.users.getUserList({ limit: 100 })
 
     let syncedCount = 0
     let errorCount = 0
 
-    for (const user of users) {
+    for (const user of users.data) {
       try {
         const userId = user.id
         const name = user.firstName || user.fullName || user.username || 'User'
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
       message: `Synced ${syncedCount} users from Clerk`,
       syncedCount,
       errorCount,
-      totalClerkUsers: users.length
+      totalClerkUsers: users.data.length
     })
   } catch (error) {
     console.error('Bulk sync error:', error)

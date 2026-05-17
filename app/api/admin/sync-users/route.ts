@@ -2,6 +2,7 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { neon } from '@neondatabase/serverless'
 
 const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
 
 export async function POST(req: Request) {
   try {
@@ -11,12 +12,14 @@ export async function POST(req: Request) {
     }
 
     // Get all users from Clerk
-    const users = await clerkClient.users.getUserList({ limit: 100 })
+    const clerk = await clerkClient()
+    const users = await clerk.users.getUserList({ limit: 100 })
 
     let syncedCount = 0
     let errorCount = 0
 
-    for (const user of users) {
+    const userList = users.data
+    for (const user of userList) {
       try {
         const userId = user.id
         const name = user.firstName || user.fullName || user.username || 'User'
@@ -55,7 +58,7 @@ export async function POST(req: Request) {
       message: `Synced ${syncedCount} users from Clerk`,
       syncedCount,
       errorCount,
-      totalClerkUsers: users.length
+      totalClerkUsers: userList.length
     })
   } catch (error) {
     console.error('Admin sync error:', error)

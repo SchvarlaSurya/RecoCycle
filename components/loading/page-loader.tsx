@@ -13,8 +13,8 @@ export function PageLoader({ theme = 'light' }: PageLoaderProps) {
   const [visible, setVisible] = useState(false)
   const [exiting, setExiting] = useState(false)
   const prevPathRef = useRef<string>(pathname)
-  const showTimerRef = useRef<ReturnType<typeof setTimeout>>()
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const showTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
     // Skip on first render

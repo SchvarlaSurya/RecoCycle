@@ -16,7 +16,8 @@
       "Bash(taskkill /F /IM node.exe)",
       "Bash(taskkill /PID 17812 /F)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
