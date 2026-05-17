@@ -71,26 +71,39 @@ export async function GET(req: Request) {
     `
     results.push('✓ waste_catalog seeded (8 items)')
 
-    // 4. Create tier_configs table
-    await getSql()`
-      CREATE TABLE IF NOT EXISTS tier_configs (
-        id SERIAL PRIMARY KEY,
-        tier_name VARCHAR(50) UNIQUE NOT NULL,
-        min_weight_kg DECIMAL(12,2) NOT NULL,
-        max_weight_kg DECIMAL(12,2),
-        bonus_percentage DECIMAL(5,2) NOT NULL,
-        description TEXT,
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `
-    results.push('✓ tier_configs table created')
+    // 4. Create tier_configs table (add missing columns if table exists but is incomplete)
+    try {
+      await getSql()`
+        CREATE TABLE IF NOT EXISTS tier_configs (
+          id SERIAL PRIMARY KEY,
+          tier_name VARCHAR(50) UNIQUE NOT NULL,
+          min_weight_kg DECIMAL(12,2) NOT NULL,
+          max_weight_kg DECIMAL(12,2),
+          bonus_percentage DECIMAL(5,2) NOT NULL,
+          description TEXT,
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `
+    } catch (e) {}
 
-    // 5. Seed tier_configs data
-    // Add is_active column if missing
+    // Add missing columns to existing tier_configs table
+    try {
+      await getSql()`ALTER TABLE tier_configs ADD COLUMN IF NOT EXISTS description TEXT`
+    } catch (e) {}
     try {
       await getSql()`ALTER TABLE tier_configs ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`
     } catch (e) {}
+    try {
+      await getSql()`ALTER TABLE tier_configs ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`
+    } catch (e) {}
+    try {
+      await getSql()`ALTER TABLE tier_configs ALTER COLUMN description SET DEFAULT NULL`
+    } catch (e) {}
+
+    results.push('✓ tier_configs table created')
+
+    // 5. Seed tier_configs data
 
     await getSql()`
       INSERT INTO tier_configs (tier_name, min_weight_kg, max_weight_kg, bonus_percentage, description, is_active)
