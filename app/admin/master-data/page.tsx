@@ -31,7 +31,7 @@ export default function MasterDataPage() {
       if (res.success && res.data) {
         console.log('Setting waste catalog:', res.data);
         setWasteCatalog(res.data);
-      } else if (res.error) {
+      } else {
         console.error('Error loading waste catalog:', res.error);
       }
     } catch (error) {

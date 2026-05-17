@@ -138,29 +138,30 @@ export async function getAllTransactionsAdmin(): Promise<{ success: boolean; dat
 
 export async function getWasteCatalogAdmin(): Promise<{ success: boolean; data?: any[]; error?: string }> {
   try {
-    // First ensure table exists
+    // First ensure table exists with all columns
     try {
-      await sql`
-        CREATE TABLE IF NOT EXISTS waste_catalog (
-          id VARCHAR(50) PRIMARY KEY,
-          name VARCHAR(150) NOT NULL,
-          category VARCHAR(50) NOT NULL,
-          price_per_kg DECIMAL(12,2) NOT NULL,
-          previous_price DECIMAL(12,2),
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        )
-      `
-    } catch (tableError) {
-      // Table might already exist
-      console.log('Table creation skipped:', tableError)
-    }
+      await sql`CREATE TABLE IF NOT EXISTS waste_catalog (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(150) NOT NULL,
+        category VARCHAR(50) NOT NULL,
+        price_per_kg DECIMAL(12,2) NOT NULL,
+        previous_price DECIMAL(12,2),
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )`
+    } catch (e) {}
+
+    // Add missing columns in case table exists with old schema
+    try { await sql`ALTER TABLE waste_catalog ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true` } catch (e) {}
+    try { await sql`ALTER TABLE waste_catalog ADD COLUMN IF NOT EXISTS previous_price DECIMAL(12,2)` } catch (e) {}
 
     const catalog = await sql`SELECT * FROM waste_catalog ORDER BY category, name`;
 
     // If catalog is empty, seed default data
     if (catalog.length === 0) {
+      // Seed data
+      await sql`DELETE FROM waste_catalog`
       await sql`
         INSERT INTO waste_catalog (id, name, category, price_per_kg, is_active) VALUES
           ('plastic', 'Plastik Campur', 'anorganik', 4200, true),
@@ -171,9 +172,8 @@ export async function getWasteCatalogAdmin(): Promise<{ success: boolean; data?:
           ('electronics', 'Elektronik Kecil', 'khusus', 13200, true),
           ('glass', 'Botol Kaca', 'anorganik', 3500, true),
           ('oil', 'Minyak Jelantah', 'organik', 4000, true)
-        ON CONFLICT (id) DO NOTHING
       `
-      // Fetch again after seeding
+      // Fetch again
       const seededCatalog = await sql`SELECT * FROM waste_catalog ORDER BY category, name`
       return { success: true, data: seededCatalog }
     }
