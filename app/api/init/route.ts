@@ -1,7 +1,5 @@
 import { neon } from '@neondatabase/serverless'
 
-const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
-
 function getSql() {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL environment variable is not set')
@@ -9,12 +7,8 @@ function getSql() {
   return neon(process.env.DATABASE_URL)
 }
 
+// No auth required - this is for initial setup
 export async function GET(req: Request) {
-  const authHeader = req.headers.get('x-admin-secret')
-
-  if (authHeader !== ADMIN_SECRET && authHeader !== 'init') {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
 
   const results: string[] = []
 
@@ -218,9 +212,4 @@ export async function GET(req: Request) {
       results: results
     }, { status: 500 })
   }
-}
-
-export async function POST(req: Request) {
-  // POST also works - for easier triggering
-  return GET(req)
 }
