@@ -10,6 +10,7 @@ const STATIC_ADMIN_IDS = [
 
 const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
+const isPublicRoute = createRouteMatcher(["/", "/login(.*)", "/register(.*)", "/init"]);
 
 // Check if user is admin - dynamic check from Clerk
 async function isAdminUser(userId: string): Promise<boolean> {
@@ -38,6 +39,11 @@ export default clerkMiddleware(async (auth, req) => {
         { status: 401 }
       )
     }
+  }
+
+  // /init page is public for setup
+  if (path === "/init" || path === "/api/init") {
+    return NextResponse.next()
   }
 
   // Jika sudah login, root dan auth pages langsung ke dashboard/admin
