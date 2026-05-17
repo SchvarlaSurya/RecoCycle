@@ -139,6 +139,26 @@ export async function getAllTransactionsAdmin(): Promise<{ success: boolean; dat
 export async function getWasteCatalogAdmin(): Promise<{ success: boolean; data?: any[]; error?: string }> {
   try {
     const catalog = await sql`SELECT * FROM waste_catalog ORDER BY category, name`;
+
+    // If catalog is empty, seed default data
+    if (catalog.length === 0) {
+      await sql`
+        INSERT INTO waste_catalog (id, name, category, price_per_kg, is_active) VALUES
+          ('plastic', 'Plastik Campur', 'anorganik', 4200, true),
+          ('paper', 'Kertas dan Kardus', 'anorganik', 2800, true),
+          ('metal', 'Logam Ringan', 'anorganik', 7600, true),
+          ('organic', 'Sisa Organik Kering', 'organik', 1700, true),
+          ('battery', 'Baterai Rumah Tangga', 'khusus', 9800, true),
+          ('electronics', 'Elektronik Kecil', 'khusus', 13200, true),
+          ('glass', 'Botol Kaca', 'anorganik', 3500, true),
+          ('oil', 'Minyak Jelantah', 'organik', 4000, true)
+        ON CONFLICT (id) DO NOTHING
+      `
+      // Fetch again after seeding
+      const seededCatalog = await sql`SELECT * FROM waste_catalog ORDER BY category, name`
+      return { success: true, data: seededCatalog }
+    }
+
     return { success: true, data: catalog };
   } catch (error) {
     console.error("Error fetching waste catalog:", error);
