@@ -27,8 +27,12 @@ export default function MasterDataPage() {
     setIsLoading(true);
     try {
       const res = await getWasteCatalogAdmin();
+      console.log('Master data response:', res);
       if (res.success && res.data) {
+        console.log('Setting waste catalog:', res.data);
         setWasteCatalog(res.data);
+      } else if (res.error) {
+        console.error('Error loading waste catalog:', res.error);
       }
     } catch (error) {
       console.error("Error loading waste catalog:", error);
@@ -84,6 +88,26 @@ export default function MasterDataPage() {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (wasteCatalog.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="rounded-full bg-stone-100 p-4 mb-4">
+          <svg className="h-8 w-8 text-stone-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M20 25l-8-8m0 0L2 25m8-8l8 8M12 3v18" />
+          </svg>
+        </div>
+        <p className="text-stone-600 font-medium">Belum ada data sampah</p>
+        <p className="text-stone-400 text-sm mt-1 mb-4">Data sampah akan muncul setelah setup database</p>
+        <button
+          onClick={() => loadData()}
+          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition"
+        >
+          Muat Ulang / Seed Data
+        </button>
       </div>
     );
   }

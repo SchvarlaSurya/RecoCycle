@@ -138,6 +138,25 @@ export async function getAllTransactionsAdmin(): Promise<{ success: boolean; dat
 
 export async function getWasteCatalogAdmin(): Promise<{ success: boolean; data?: any[]; error?: string }> {
   try {
+    // First ensure table exists
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS waste_catalog (
+          id VARCHAR(50) PRIMARY KEY,
+          name VARCHAR(150) NOT NULL,
+          category VARCHAR(50) NOT NULL,
+          price_per_kg DECIMAL(12,2) NOT NULL,
+          previous_price DECIMAL(12,2),
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `
+    } catch (tableError) {
+      // Table might already exist
+      console.log('Table creation skipped:', tableError)
+    }
+
     const catalog = await sql`SELECT * FROM waste_catalog ORDER BY category, name`;
 
     // If catalog is empty, seed default data
