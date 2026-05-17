@@ -1,7 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
 const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function POST(req: Request) {
   const authHeader = req.headers.get('x-admin-secret')
@@ -26,17 +32,17 @@ export async function POST(req: Request) {
     if (id) {
       // Try as UUID first
       try {
-        withdrawal = await sql`SELECT * FROM withdrawals WHERE id = ${id}`
+        withdrawal = await getSql()`SELECT * FROM withdrawals WHERE id = ${id}`
       } catch (e) {
         console.log('UUID query failed, trying as integer:', e)
         // Try as integer
         const idNum = parseInt(String(id))
         if (!isNaN(idNum)) {
-          withdrawal = await sql`SELECT * FROM withdrawals WHERE id = ${idNum}`
+          withdrawal = await getSql()`SELECT * FROM withdrawals WHERE id = ${idNum}`
         }
       }
     } else if (wdId) {
-      withdrawal = await sql`SELECT * FROM withdrawals WHERE wd_id = ${wdId}`
+      withdrawal = await getSql()`SELECT * FROM withdrawals WHERE wd_id = ${wdId}`
     }
 
     console.log('Found withdrawal:', withdrawal)
@@ -53,7 +59,7 @@ export async function POST(req: Request) {
     }
 
     // Update status to Selesai
-    const updateResult = await sql`
+    const updateResult = await getSql()`
       UPDATE withdrawals
       SET status = 'Selesai'
       WHERE id = ${wd.id}
@@ -68,7 +74,7 @@ export async function POST(req: Request) {
     const amountValue = parseFloat(String(wd.amount).replace(/[^0-9.]/g, '')) || 0
 
     try {
-      await sql`
+      await getSql()`
         UPDATE user_balances
         SET balance = balance - ${amountValue},
             total_penarikan = COALESCE(total_penarikan, 0) + ${amountValue},
@@ -81,7 +87,7 @@ export async function POST(req: Request) {
 
     // Update the pending transaction to Selesai
     try {
-      await sql`
+      await getSql()`
         UPDATE transactions
         SET status = 'Selesai'
         WHERE user_id = ${wd.user_id}

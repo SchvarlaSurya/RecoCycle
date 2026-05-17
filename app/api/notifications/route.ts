@@ -1,13 +1,20 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
     const { userId, type, title, message } = body
 
-    const res = await sql`
+    const res = await getSql()`
       INSERT INTO notifications (
         user_id,
         type,
@@ -39,17 +46,13 @@ export async function GET(req: Request) {
   const isRead = searchParams.get('isRead')
 
   try {
-    let query
+    let notifications
     if (userId && isRead !== null) {
-      query = sql`SELECT * FROM notifications WHERE user_id = ${userId} AND is_read = ${isRead === 'true'} ORDER BY created_at DESC LIMIT 50`
-    } else if (userId) {
-      query = sql`SELECT * FROM notifications WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 50`
+      notifications = await getSql()`SELECT * FROM notifications WHERE user_id = ${userId} AND is_read = ${isRead === 'true'} ORDER BY created_at DESC LIMIT 50`
     } else {
-      return Response.json({ success: false, error: 'userId is required' }, { status: 400 })
+      notifications = await getSql()`SELECT * FROM notifications WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 50`
     }
-
-    const notifications = await query
-    const unreadCount = await sql`SELECT COUNT(*) as count FROM notifications WHERE user_id = ${userId} AND is_read = false`
+    const unreadCount = await getSql()`SELECT COUNT(*) as count FROM notifications WHERE user_id = ${userId} AND is_read = false`
 
     return Response.json({
       success: true,
@@ -72,7 +75,7 @@ export async function PUT(req: Request) {
 
   try {
     // Mark all notifications as read
-    await sql`UPDATE notifications SET is_read = true WHERE user_id = ${userId} AND is_read = false`
+    await getSql()`UPDATE notifications SET is_read = true WHERE user_id = ${userId} AND is_read = false`
     return Response.json({ success: true })
   } catch (error) {
     console.error('Mark read error:', error)

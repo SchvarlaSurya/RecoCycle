@@ -1,10 +1,17 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET() {
   try {
-    const catalog = await sql`
+    const catalog = await getSql()`
       SELECT id, name, category, price_per_kg, updated_at
       FROM waste_catalog
       ORDER BY category, name

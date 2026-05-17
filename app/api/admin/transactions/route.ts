@@ -1,7 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
 const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get('x-admin-secret')
@@ -17,13 +23,13 @@ export async function GET(req: Request) {
   try {
     let transactions
     if (status && type) {
-      transactions = await sql`SELECT * FROM transactions WHERE status = ${status} AND type = ${type} ORDER BY created_at DESC LIMIT 100`
+      transactions = await getSql()`SELECT * FROM transactions WHERE status = ${status} AND type = ${type} ORDER BY created_at DESC LIMIT 100`
     } else if (status) {
-      transactions = await sql`SELECT * FROM transactions WHERE status = ${status} ORDER BY created_at DESC LIMIT 100`
+      transactions = await getSql()`SELECT * FROM transactions WHERE status = ${status} ORDER BY created_at DESC LIMIT 100`
     } else if (type) {
-      transactions = await sql`SELECT * FROM transactions WHERE type = ${type} ORDER BY created_at DESC LIMIT 100`
+      transactions = await getSql()`SELECT * FROM transactions WHERE type = ${type} ORDER BY created_at DESC LIMIT 100`
     } else {
-      transactions = await sql`SELECT * FROM transactions ORDER BY created_at DESC LIMIT 100`
+      transactions = await getSql()`SELECT * FROM transactions ORDER BY created_at DESC LIMIT 100`
     }
     return Response.json(transactions)
   } catch (error) {

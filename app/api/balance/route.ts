@@ -1,6 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -11,7 +18,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const balance = await sql`
+    const balance = await getSql()`
       SELECT * FROM user_balances WHERE user_id = ${userId}
     `
 
@@ -50,7 +57,7 @@ export async function POST(req: Request) {
     // Get total setoran from transactions
     let totalSetoran = 0
     try {
-      const setoranResult = await sql`
+      const setoranResult = await getSql()`
         SELECT COALESCE(SUM(ABS(CAST(reward AS NUMERIC))), 0) as total
         FROM transactions
         WHERE user_id = ${userId}
@@ -67,7 +74,7 @@ export async function POST(req: Request) {
     // Get total penarikan
     let totalPenarikan = 0
     try {
-      const penarikanResult = await sql`
+      const penarikanResult = await getSql()`
         SELECT COALESCE(SUM(ABS(CAST(amount AS NUMERIC))), 0) as total
         FROM transactions
         WHERE user_id = ${userId}
@@ -83,7 +90,7 @@ export async function POST(req: Request) {
     const balance = totalSetoran - totalPenarikan
 
     // Upsert balance
-    await sql`
+    await getSql()`
       INSERT INTO user_balances (user_id, balance, total_setoran, total_penarikan, updated_at)
       VALUES (${userId}, ${balance}, ${totalSetoran}, ${totalPenarikan}, NOW())
       ON CONFLICT (user_id) DO UPDATE SET

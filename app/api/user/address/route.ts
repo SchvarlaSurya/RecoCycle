@@ -1,6 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -11,7 +18,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const result = await sql`
+    const result = await getSql()`
       SELECT * FROM user_addresses WHERE user_id = ${userId} LIMIT 1
     `
     return Response.json(result[0] || null)
@@ -30,7 +37,7 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const result = await sql`
+    const result = await getSql()`
       INSERT INTO user_addresses (user_id, address, latitude, longitude, updated_at)
       VALUES (${userId}, ${address}, ${latitude || 0}, ${longitude || 0}, NOW())
       ON CONFLICT (user_id) DO UPDATE SET

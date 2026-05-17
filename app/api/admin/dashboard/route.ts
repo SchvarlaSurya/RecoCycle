@@ -1,7 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
 const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get('x-admin-secret')
@@ -21,10 +27,10 @@ export async function GET(req: Request) {
       balanceStats
     ] = await Promise.all([
       // 1. Get all users count
-      sql`SELECT COUNT(*) as count FROM users`,
+      getSql()`SELECT COUNT(*) as count FROM users`,
 
       // 2. Get all pickups stats
-      sql`
+      getSql()`
         SELECT
           COUNT(*) as total_pickups,
           COALESCE(SUM(CAST(weight_kg AS NUMERIC)), 0) as total_kg,
@@ -33,13 +39,13 @@ export async function GET(req: Request) {
       `,
 
       // 3. Get pending withdrawals count
-      sql`
+      getSql()`
         SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as total_amount
         FROM withdrawals WHERE status = 'Menunggu Verifikasi'
       `,
 
       // 4. Get weekly trend
-      sql`
+      getSql()`
         SELECT DATE(created_at) as date, SUM(CAST(weight_kg AS NUMERIC)) as kg
         FROM pickups
         WHERE created_at >= NOW() - INTERVAL '7 days'
@@ -48,7 +54,7 @@ export async function GET(req: Request) {
       `,
 
       // 5. Get waste type distribution
-      sql`
+      getSql()`
         SELECT waste_name, SUM(CAST(weight_kg AS NUMERIC)) as kg
         FROM pickups
         WHERE status IN ('verified', 'selesai', 'terverifikasi')
@@ -58,7 +64,7 @@ export async function GET(req: Request) {
       `,
 
       // 6. Total balance across all users
-      sql`SELECT COALESCE(SUM(balance), 0) as total_balance FROM user_balances`
+      getSql()`SELECT COALESCE(SUM(balance), 0) as total_balance FROM user_balances`
     ])
 
     // Parse results
@@ -120,7 +126,7 @@ export async function GET(req: Request) {
       pendingWithdrawalListRaw
     ] = await Promise.all([
       // Recent transactions with user names
-      sql`
+      getSql()`
         SELECT
           t.*,
           u.name as db_user_name
@@ -131,7 +137,7 @@ export async function GET(req: Request) {
       `,
 
       // Pending pickups for verification
-      sql`
+      getSql()`
         SELECT p.*, u.name as db_user_name
         FROM pickups p
         LEFT JOIN users u ON p.user_id = u.id
@@ -141,7 +147,7 @@ export async function GET(req: Request) {
       `,
 
       // Pending withdrawals for verification
-      sql`
+      getSql()`
         SELECT w.*, u.name as db_user_name
         FROM withdrawals w
         LEFT JOIN users u ON w.user_id = u.id

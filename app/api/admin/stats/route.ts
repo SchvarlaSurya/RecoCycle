@@ -1,7 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
 const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get('x-admin-secret')
@@ -12,16 +18,16 @@ export async function GET(req: Request) {
 
   try {
     // Get user count
-    const userCount = await sql`SELECT COUNT(*) as count FROM users`
+    const userCount = await getSql()`SELECT COUNT(*) as count FROM users`
 
     // Get total pickups
-    const pickupCount = await sql`SELECT COUNT(*) as count FROM pickups`
+    const pickupCount = await getSql()`SELECT COUNT(*) as count FROM pickups`
 
     // Get pending pickups
-    const pendingPickups = await sql`SELECT COUNT(*) as count FROM pickups WHERE status = 'pending'`
+    const pendingPickups = await getSql()`SELECT COUNT(*) as count FROM pickups WHERE status = 'pending'`
 
     // Get pending withdrawals
-    const pendingWithdrawals = await sql`SELECT COUNT(*) as count FROM withdrawals WHERE status = 'pending'`
+    const pendingWithdrawals = await getSql()`SELECT COUNT(*) as count FROM withdrawals WHERE status = 'pending'`
 
     return Response.json({
       totalUsers: parseInt(userCount[0]?.count) || 0,

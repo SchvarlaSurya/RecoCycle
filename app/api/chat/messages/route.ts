@@ -1,6 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -11,7 +18,7 @@ export async function GET(req: Request) {
     return Response.json({ error: 'roomId is required' }, { status: 400 })
   }
 
-  const rows = await sql`
+  const rows = await getSql()`
     SELECT * FROM chat_messages
     WHERE room_id = ${roomId}
     AND created_at > ${after}
@@ -27,14 +34,14 @@ export async function POST(req: Request) {
     return Response.json({ error: 'roomId, senderRole, senderName, and content are required' }, { status: 400 })
   }
 
-  const msg = await sql`
+  const msg = await getSql()`
     INSERT INTO chat_messages (room_id, sender_role, sender_name, content)
     VALUES (${roomId}, ${senderRole}, ${senderName}, ${content})
     RETURNING *
   `
 
   if (senderRole === 'user') {
-    await sql`
+    await getSql()`
       UPDATE chat_rooms
       SET last_message = ${content},
           last_message_at = NOW(),
@@ -42,7 +49,7 @@ export async function POST(req: Request) {
       WHERE id = ${roomId}
     `
   } else {
-    await sql`
+    await getSql()`
       UPDATE chat_rooms
       SET last_message = ${content},
           last_message_at = NOW(),

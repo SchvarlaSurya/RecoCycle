@@ -1,6 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -10,7 +17,7 @@ export async function GET(req: Request) {
     return Response.json({ error: 'userId is required' }, { status: 400 })
   }
 
-  const rows = await sql`
+  const rows = await getSql()`
     SELECT * FROM chat_rooms WHERE user_id = ${userId} LIMIT 1
   `
   return Response.json(rows[0] ?? null)
@@ -24,7 +31,7 @@ export async function POST(req: Request) {
   }
 
   // Check if room already exists for this user
-  const existingRoom = await sql`
+  const existingRoom = await getSql()`
     SELECT * FROM chat_rooms WHERE user_id = ${userId} LIMIT 1
   `
 
@@ -33,7 +40,7 @@ export async function POST(req: Request) {
   }
 
   // Create new room only if none exists
-  const rows = await sql`
+  const rows = await getSql()`
     INSERT INTO chat_rooms (user_id, user_name, user_email)
     VALUES (${userId}, ${userName}, ${userEmail})
     RETURNING *

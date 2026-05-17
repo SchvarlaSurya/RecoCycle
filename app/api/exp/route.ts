@@ -1,6 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 // EXP and tier configuration
 const TIER_CONFIG = {
@@ -45,7 +52,7 @@ export async function GET(req: Request) {
   try {
     if (top === '5') {
       // Get top 5 users by exp
-      const users = await sql`
+      const users = await getSql()`
         SELECT id, name, tier, exp,
                COALESCE((SELECT SUM(weight_kg) FROM pickups WHERE user_id = users.id AND status = 'verified'), 0) as total_kg,
                COALESCE((SELECT COUNT(*) FROM pickups WHERE user_id = users.id AND status = 'verified'), 0) as total_pickups
@@ -69,7 +76,7 @@ export async function GET(req: Request) {
     }
 
     if (userId) {
-      const user = await sql`SELECT * FROM users WHERE id = ${userId}`
+      const user = await getSql()`SELECT * FROM users WHERE id = ${userId}`
       if (user.length === 0) {
         return Response.json({
           success: true,
@@ -92,7 +99,7 @@ export async function GET(req: Request) {
     }
 
     // Get all users
-    const users = await sql`SELECT * FROM users ORDER BY exp DESC`
+    const users = await getSql()`SELECT * FROM users ORDER BY exp DESC`
     return Response.json({
       success: true,
       users: users.map(u => ({
@@ -116,7 +123,7 @@ export async function PUT(req: Request) {
       const expEarned = Math.round((weightKg || 0) * EXP_PER_KG)
 
       // Get current user data
-      const current = await sql`SELECT * FROM users WHERE id = ${userId}`
+      const current = await getSql()`SELECT * FROM users WHERE id = ${userId}`
       const currentExp = current.length > 0 ? parseInt(current[0].exp) || 0 : 0
       const newExp = currentExp + expEarned
 
@@ -124,7 +131,7 @@ export async function PUT(req: Request) {
       const tierInfo = calculateTier(newExp)
 
       // Update user with new exp and tier
-      await sql`
+      await getSql()`
         INSERT INTO users (id, exp, tier, updated_at)
         VALUES (${userId}, ${newExp}, ${tierInfo.tier}, NOW())
         ON CONFLICT (id) DO UPDATE SET

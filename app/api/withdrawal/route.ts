@@ -1,7 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
 const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -13,19 +19,18 @@ export async function GET(req: Request) {
   try {
     // Admin can fetch all withdrawals
     if (isAdmin) {
-      let query
+      let withdrawals
       if (status && status.trim() !== '') {
-        query = sql`SELECT * FROM withdrawals WHERE status = ${status} ORDER BY created_at DESC LIMIT 100`
+        withdrawals = await getSql()`SELECT * FROM withdrawals WHERE status = ${status} ORDER BY created_at DESC LIMIT 100`
       } else {
-        query = sql`SELECT * FROM withdrawals ORDER BY created_at DESC LIMIT 100`
+        withdrawals = await getSql()`SELECT * FROM withdrawals ORDER BY created_at DESC LIMIT 100`
       }
-      const withdrawals = await query
 
       // Fetch user names for each withdrawal
       const enrichedWithdrawals = await Promise.all(
         withdrawals.map(async (w: any) => {
           try {
-            const user = await sql`SELECT name FROM users WHERE id = ${w.user_id}`
+            const user = await getSql()`SELECT name FROM users WHERE id = ${w.user_id}`
             return {
               ...w,
               user_name: user.length > 0 ? user[0].name : 'Unknown User'
@@ -44,14 +49,12 @@ export async function GET(req: Request) {
       return Response.json({ error: 'userId is required' }, { status: 400 })
     }
 
-    let query
+    let withdrawals
     if (status) {
-      query = sql`SELECT * FROM withdrawals WHERE user_id = ${userId} AND status = ${status} ORDER BY created_at DESC`
+      withdrawals = await getSql()`SELECT * FROM withdrawals WHERE user_id = ${userId} AND status = ${status} ORDER BY created_at DESC`
     } else {
-      query = sql`SELECT * FROM withdrawals WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 50`
+      withdrawals = await getSql()`SELECT * FROM withdrawals WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 50`
     }
-
-    const withdrawals = await query
     return Response.json(withdrawals)
   } catch (error) {
     console.error('Get withdrawals error:', error)
@@ -97,7 +100,7 @@ export async function POST(req: Request) {
   // ======================================
   try {
     // Calculate actual balance from transactions (setoran + reward - penarikan)
-    const balanceCalc = await sql`
+    const balanceCalc = await getSql()`
       SELECT
         type,
         SUM(ABS(CAST(amount AS NUMERIC))) as total
@@ -158,7 +161,7 @@ export async function POST(req: Request) {
 
   try {
     // Try to insert withdrawal
-    const result = await sql`
+    const result = await getSql()`
       INSERT INTO withdrawals (
         user_id,
         wd_id,
@@ -185,7 +188,7 @@ export async function POST(req: Request) {
 
     // Create transaction record - DON'T deduct balance yet, just record pending
     try {
-      await sql`
+      await getSql()`
         INSERT INTO transactions (
           user_id,
           user_name,
@@ -229,7 +232,7 @@ export async function POST(req: Request) {
     if (errorMsg.includes('user_balances')) {
       // Try to create user_balances entry first
       try {
-        await sql`
+        await getSql()`
           INSERT INTO user_balances (user_id, balance, total_setoran, updated_at)
           VALUES (${userId}, 0, 0, NOW())
           ON CONFLICT (user_id) DO NOTHING
@@ -240,7 +243,7 @@ export async function POST(req: Request) {
 
       // Retry withdrawal
       try {
-        const result = await sql`
+        const result = await getSql()`
           INSERT INTO withdrawals (
             user_id, wd_id, method, account_name, account_number, amount, status, date, created_at
           ) VALUES (

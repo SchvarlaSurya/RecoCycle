@@ -1,7 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
 const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 // This API syncs EXP for all users based on their verified pickups
 export async function POST(req: Request) {
@@ -13,13 +19,13 @@ export async function POST(req: Request) {
 
   try {
     // Get all users
-    const users = await sql`SELECT id, name FROM users`
+    const users = await getSql()`SELECT id, name FROM users`
 
     const results = []
 
     for (const user of users) {
       // Calculate total EXP from verified pickups
-      const pickups = await sql`
+      const pickups = await getSql()`
         SELECT COALESCE(SUM(weight_kg::numeric), 0) as total_kg
         FROM pickups
         WHERE user_id = ${user.id} AND status = 'verified'
@@ -34,7 +40,7 @@ export async function POST(req: Request) {
       else if (expEarned >= 1000) newTier = 'silver'
 
       // Update user with calculated EXP
-      await sql`
+      await getSql()`
         UPDATE users
         SET exp = ${expEarned},
             tier = ${newTier},

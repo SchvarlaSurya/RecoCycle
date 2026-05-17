@@ -1,6 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function POST(req: Request) {
   try {
@@ -11,11 +18,11 @@ export async function POST(req: Request) {
     const email = userData?.email || null
 
     // Check if user already exists to preserve exp
-    const existingUser = await sql`SELECT exp FROM users WHERE id = ${userId}`
+    const existingUser = await getSql()`SELECT exp FROM users WHERE id = ${userId}`
     const currentExp = existingUser.length > 0 ? existingUser[0].exp : 0
 
     // Insert or update user in users table - preserve existing exp
-    const result = await sql`
+    const result = await getSql()`
       INSERT INTO users (id, name, email, tier, exp, created_at, updated_at)
       VALUES (
         ${userId},
@@ -45,7 +52,7 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    const users = await sql`SELECT * FROM users ORDER BY exp DESC`
+    const users = await getSql()`SELECT * FROM users ORDER BY exp DESC`
 
     return Response.json({
       success: true,

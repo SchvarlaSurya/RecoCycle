@@ -1,7 +1,14 @@
 import { neon } from '@neondatabase/serverless'
 import { z } from 'zod'
 
-const sql = neon(process.env.DATABASE_URL!);
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+};
 
 const wasteTypePrices: Record<string, { name: string; price: number }> = {
   baterai: { name: "Baterai Rumah Tangga", price: 10094 },
@@ -43,7 +50,7 @@ export async function POST(req: Request) {
     const safeWeight = Math.min(Math.max(weight, 0), 1000)
     const reward = safeWeight * wasteInfo.price
 
-    const result = await sql`
+    const result = await getSql()`
       INSERT INTO pickups (
         user_id,
         user_name,
@@ -76,7 +83,7 @@ export async function POST(req: Request) {
 
     // Also create a transaction record
     try {
-      await sql`
+      await getSql()`
         INSERT INTO transactions (
           user_id,
           user_name,
@@ -126,7 +133,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const pickups = await sql`
+    const pickups = await getSql()`
       SELECT * FROM pickups
       WHERE user_id = ${userId}
       ORDER BY created_at DESC

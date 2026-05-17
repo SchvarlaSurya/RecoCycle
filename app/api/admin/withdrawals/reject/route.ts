@@ -1,13 +1,19 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
 const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 async function ensureWithdrawalColumns() {
   try {
-    await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS rejected_reason TEXT`
-    await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS verified_by VARCHAR(255)`
-    await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP`
+    await getSql()`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS rejected_reason TEXT`
+    await getSql()`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS verified_by VARCHAR(255)`
+    await getSql()`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP`
   } catch (e) {
     // columns may already exist
   }
@@ -35,15 +41,15 @@ export async function POST(req: Request) {
 
     if (id) {
       try {
-        withdrawal = await sql`SELECT * FROM withdrawals WHERE id = ${id}`
+        withdrawal = await getSql()`SELECT * FROM withdrawals WHERE id = ${id}`
       } catch (e) {
         const idNum = parseInt(String(id))
         if (!isNaN(idNum)) {
-          withdrawal = await sql`SELECT * FROM withdrawals WHERE id = ${idNum}`
+          withdrawal = await getSql()`SELECT * FROM withdrawals WHERE id = ${idNum}`
         }
       }
     } else if (wdId) {
-      withdrawal = await sql`SELECT * FROM withdrawals WHERE wd_id = ${wdId}`
+      withdrawal = await getSql()`SELECT * FROM withdrawals WHERE wd_id = ${wdId}`
     }
 
     if (withdrawal.length === 0) {
@@ -58,7 +64,7 @@ export async function POST(req: Request) {
 
     const wdAmount = parseFloat(String(wd.amount).replace(/[^0-9.]/g, '')) || 0
 
-    await sql`
+    await getSql()`
       UPDATE withdrawals
       SET status = 'Ditolak',
           rejected_reason = 'Ditolak oleh admin',
@@ -68,7 +74,7 @@ export async function POST(req: Request) {
     `
 
     try {
-      await sql`
+      await getSql()`
         UPDATE transactions
         SET status = 'Ditolak'
         WHERE user_id = ${wd.user_id}

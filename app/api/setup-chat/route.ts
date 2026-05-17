@@ -1,11 +1,18 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function POST() {
   try {
     // Create chat_rooms table
-    await sql`
+    await getSql()`
       CREATE TABLE IF NOT EXISTS chat_rooms (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id VARCHAR(255) NOT NULL,
@@ -21,7 +28,7 @@ export async function POST() {
     `
 
     // Create chat_messages table
-    await sql`
+    await getSql()`
       CREATE TABLE IF NOT EXISTS chat_messages (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         room_id UUID REFERENCES chat_rooms(id) ON DELETE CASCADE,
@@ -34,10 +41,10 @@ export async function POST() {
     `
 
     // Create indexes
-    await sql`CREATE INDEX IF NOT EXISTS idx_chat_messages_room_id ON chat_messages(room_id)`
-    await sql`CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at)`
-    await sql`CREATE INDEX IF NOT EXISTS idx_chat_rooms_user_id ON chat_rooms(user_id)`
-    await sql`CREATE INDEX IF NOT EXISTS idx_chat_rooms_last_message_at ON chat_rooms(last_message_at)`
+    await getSql()`CREATE INDEX IF NOT EXISTS idx_chat_messages_room_id ON chat_messages(room_id)`
+    await getSql()`CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at)`
+    await getSql()`CREATE INDEX IF NOT EXISTS idx_chat_rooms_user_id ON chat_rooms(user_id)`
+    await getSql()`CREATE INDEX IF NOT EXISTS idx_chat_rooms_last_message_at ON chat_rooms(last_message_at)`
 
     return Response.json({ success: true, message: 'Chat tables created successfully!' })
   } catch (error) {

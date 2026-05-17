@@ -1,7 +1,14 @@
 import { neon } from '@neondatabase/serverless'
 import { NextResponse } from 'next/server'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET(req: Request) {
   try {
@@ -10,33 +17,27 @@ export async function GET(req: Request) {
     const status = searchParams.get('status') || 'all'
 
     // Get users from database
-    let query = sql`
-      SELECT * FROM users
-      WHERE 1=1
-    `
-
+    let dbUsers
     if (search) {
-      query = sql`
+      dbUsers = await getSql()`
         SELECT * FROM users
         WHERE name ILIKE ${'%' + search + '%'}
            OR email ILIKE ${'%' + search + '%'}
         ORDER BY exp DESC
       `
     } else {
-      query = sql`
+      dbUsers = await getSql()`
         SELECT * FROM users
         ORDER BY exp DESC
         LIMIT 100
       `
     }
 
-    const dbUsers = await query
-
     // Enrich with pickup stats
     const enrichedUsers = await Promise.all(
       dbUsers.map(async (user: any) => {
         // Get pickup stats
-        const statsResult = await sql`
+        const statsResult = await getSql()`
           SELECT
             COUNT(*) as total_pickups,
             COALESCE(SUM(CAST(weight_kg AS NUMERIC)), 0) as total_kg,
@@ -86,7 +87,7 @@ export async function DELETE(req: Request) {
     }
 
     // Delete user data (soft delete - just mark as frozen)
-    await sql`
+    await getSql()`
       UPDATE users
       SET tier = 'frozen'
       WHERE id = ${userId}
@@ -113,7 +114,7 @@ export async function PUT(req: Request) {
 
     // Update user in database
     if (name || tier) {
-      await sql`
+      await getSql()`
         UPDATE users
         SET
           name = COALESCE(${name || null}, name),

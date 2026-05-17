@@ -1,22 +1,28 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
 const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 async function ensureColumns() {
   try {
     // Transactions table columns
-    await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS reference_id VARCHAR(255)`
-    await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS user_name VARCHAR(255)`
+    await getSql()`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS reference_id VARCHAR(255)`
+    await getSql()`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS user_name VARCHAR(255)`
 
     // Withdrawals table columns
-    await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS rejected_reason TEXT`
-    await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS verified_by VARCHAR(255)`
-    await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP`
+    await getSql()`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS rejected_reason TEXT`
+    await getSql()`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS verified_by VARCHAR(255)`
+    await getSql()`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP`
 
     // Users table columns
-    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS exp INTEGER DEFAULT 0`
-    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS tier VARCHAR(50) DEFAULT 'bronze'`
+    await getSql()`ALTER TABLE users ADD COLUMN IF NOT EXISTS exp INTEGER DEFAULT 0`
+    await getSql()`ALTER TABLE users ADD COLUMN IF NOT EXISTS tier VARCHAR(50) DEFAULT 'bronze'`
   } catch (e) {
     // columns may already exist
   }
@@ -50,7 +56,7 @@ export async function GET(req: Request) {
     const dbStatus = status ? statusMap[status] || status : null
 
     if (dbStatus) {
-      pickups = await sql`
+      pickups = await getSql()`
         SELECT p.*, u.name as user_name, u.tier as user_tier, u.exp as user_exp
         FROM pickups p
         LEFT JOIN users u ON p.user_id = u.id
@@ -59,7 +65,7 @@ export async function GET(req: Request) {
         LIMIT 100
       `
     } else {
-      pickups = await sql`
+      pickups = await getSql()`
         SELECT p.*, u.name as user_name, u.tier as user_tier, u.exp as user_exp
         FROM pickups p
         LEFT JOIN users u ON p.user_id = u.id
@@ -89,7 +95,7 @@ export async function POST(req: Request) {
     const { id, action } = body
 
     if (action === 'verify') {
-      const pickup = await sql`SELECT * FROM pickups WHERE id = ${id}`
+      const pickup = await getSql()`SELECT * FROM pickups WHERE id = ${id}`
       if (pickup.length === 0) {
         return Response.json({ success: false, error: 'Pickup not found' }, { status: 404 })
       }
@@ -102,7 +108,7 @@ export async function POST(req: Request) {
       }
 
       // Update pickup status to 'Selesai'
-      await sql`
+      await getSql()`
         UPDATE pickups
         SET status = 'Selesai',
             verified_by = 'admin',
@@ -111,7 +117,7 @@ export async function POST(req: Request) {
       `
 
       // Update transaction status to 'Selesai' so balance gets calculated correctly
-      await sql`
+      await getSql()`
         UPDATE transactions
         SET status = 'Selesai'
         WHERE (reference_id = ${id} OR reference_id = CAST(${id} AS TEXT)) AND type = 'setoran'
@@ -128,17 +134,17 @@ export async function POST(req: Request) {
 
       try {
         // First try to insert, if fails then update
-        const existing = await sql`SELECT * FROM user_balances WHERE user_id = ${pickupData.user_id}`
+        const existing = await getSql()`SELECT * FROM user_balances WHERE user_id = ${pickupData.user_id}`
         console.log('Existing balance record:', existing)
 
         if (existing.length === 0) {
-          await sql`
+          await getSql()`
             INSERT INTO user_balances (user_id, balance, total_setoran, updated_at)
             VALUES (${pickupData.user_id}, ${rewardAmount}, ${rewardAmount}, NOW())
           `
           console.log('Inserted new balance record')
         } else {
-          await sql`
+          await getSql()`
             UPDATE user_balances
             SET balance = balance + ${rewardAmount},
                 total_setoran = total_setoran + ${rewardAmount},
@@ -149,7 +155,7 @@ export async function POST(req: Request) {
         }
 
         // Verify the update
-        const verify = await sql`SELECT * FROM user_balances WHERE user_id = ${pickupData.user_id}`
+        const verify = await getSql()`SELECT * FROM user_balances WHERE user_id = ${pickupData.user_id}`
         console.log('Balance after update:', verify)
       } catch (balanceError) {
         console.error('Balance update error:', balanceError)
@@ -157,7 +163,7 @@ export async function POST(req: Request) {
 
       // Add EXP to user (10 exp per kg)
       const expEarned = Math.round(parseFloat(pickupData.weight_kg || 0) * 10)
-      const currentUser = await sql`SELECT * FROM users WHERE id = ${pickupData.user_id}`
+      const currentUser = await getSql()`SELECT * FROM users WHERE id = ${pickupData.user_id}`
       const currentExp = currentUser.length > 0 ? parseInt(currentUser[0].exp) || 0 : 0
       const newExp = currentExp + expEarned
 
@@ -168,7 +174,7 @@ export async function POST(req: Request) {
 
       // Update user exp and tier
       if (currentUser.length > 0) {
-        await sql`
+        await getSql()`
           UPDATE users
           SET exp = exp + ${expEarned},
               tier = ${newTier},
@@ -178,7 +184,7 @@ export async function POST(req: Request) {
       } else {
         // User doesn't exist, insert with required fields
         const userName = pickupData.user_name || 'User'
-        await sql`
+        await getSql()`
           INSERT INTO users (id, name, exp, tier, created_at, updated_at)
           VALUES (${pickupData.user_id}, ${userName}, ${newExp}, ${newTier}, NOW(), NOW())
         `
@@ -191,7 +197,7 @@ export async function POST(req: Request) {
         : ''
 
       try {
-        await sql`
+        await getSql()`
           INSERT INTO notifications (user_id, type, title, message, is_read, created_at)
           VALUES (
             ${pickupData.user_id},
@@ -216,12 +222,12 @@ export async function POST(req: Request) {
     }
 
     if (action === 'reject') {
-      const pickup = await sql`SELECT * FROM pickups WHERE id = ${id}`
+      const pickup = await getSql()`SELECT * FROM pickups WHERE id = ${id}`
       if (pickup.length === 0) {
         return Response.json({ success: false, error: 'Pickup not found' }, { status: 404 })
       }
 
-      await sql`
+      await getSql()`
         UPDATE pickups
         SET status = 'Ditolak',
             verified_by = 'admin',
@@ -230,7 +236,7 @@ export async function POST(req: Request) {
       `
 
       // Update transaction to rejected
-      await sql`
+      await getSql()`
         UPDATE transactions
         SET status = 'Ditolak'
         WHERE (reference_id = ${id} OR reference_id = CAST(${id} AS TEXT)) AND type = 'setoran'

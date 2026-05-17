@@ -1,11 +1,18 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET(req: Request) {
   try {
     // Total kg from verified transactions (all users)
-    const kgResult = await sql`
+    const kgResult = await getSql()`
       SELECT COALESCE(SUM(CAST(weight_kg AS NUMERIC)), 0) as total_kg
       FROM pickups
       WHERE status IN ('verified', 'Selesai', 'terverifikasi')
@@ -13,7 +20,7 @@ export async function GET(req: Request) {
     const totalKg = parseFloat(kgResult[0]?.total_kg) || 0
 
     // Total transactions count
-    const txCountResult = await sql`
+    const txCountResult = await getSql()`
       SELECT COUNT(*) as count
       FROM pickups
       WHERE status IN ('verified', 'Selesai', 'terverifikasi')
@@ -21,14 +28,14 @@ export async function GET(req: Request) {
     const totalTransactions = parseInt(txCountResult[0]?.count) || 0
 
     // Total balance (all users combined)
-    const balanceResult = await sql`
+    const balanceResult = await getSql()`
       SELECT COALESCE(SUM(balance), 0) as total
       FROM user_balances
     `
     const totalBalance = parseFloat(balanceResult[0]?.total) || 0
 
     // Total exchanged (withdrawals)
-    const exchangedResult = await sql`
+    const exchangedResult = await getSql()`
       SELECT COALESCE(SUM(amount), 0) as total
       FROM withdrawals
       WHERE status NOT IN ('Ditolak', 'rejected', 'pending')
@@ -36,7 +43,7 @@ export async function GET(req: Request) {
     const totalExchanged = parseFloat(exchangedResult[0]?.total) || 0
 
     // Weekly trend (all verified pickups in last 7 days)
-    const weeklyRaw = await sql`
+    const weeklyRaw = await getSql()`
       SELECT DATE(created_at) as dt, SUM(CAST(weight_kg AS NUMERIC)) as kg
       FROM pickups
       WHERE status IN ('verified', 'Selesai', 'terverifikasi')
@@ -67,7 +74,7 @@ export async function GET(req: Request) {
     })
 
     // Distribution by waste type
-    const distRaw = await sql`
+    const distRaw = await getSql()`
       SELECT waste_name, SUM(CAST(weight_kg AS NUMERIC)) as kg
       FROM pickups
       WHERE status IN ('verified', 'Selesai', 'terverifikasi')
@@ -93,7 +100,7 @@ export async function GET(req: Request) {
     }))
 
     // Total active users
-    const usersResult = await sql`SELECT COUNT(*) as count FROM users`
+    const usersResult = await getSql()`SELECT COUNT(*) as count FROM users`
     const totalUsers = parseInt(usersResult[0]?.count) || 0
 
     return Response.json({

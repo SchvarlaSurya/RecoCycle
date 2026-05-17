@@ -1,11 +1,18 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function POST() {
   try {
     // Create pickups table
-    await sql`
+    await getSql()`
       CREATE TABLE IF NOT EXISTS pickups (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id VARCHAR(255) NOT NULL,
@@ -28,13 +35,13 @@ export async function POST() {
 
     // Add user_name column if not exists
     try {
-      await sql`ALTER TABLE pickups ADD COLUMN IF NOT EXISTS user_name VARCHAR(255) DEFAULT 'User'`
+      await getSql()`ALTER TABLE pickups ADD COLUMN IF NOT EXISTS user_name VARCHAR(255) DEFAULT 'User'`
     } catch (e) {
       // Column might already exist
     }
 
     // Create withdrawals table
-    await sql`
+    await getSql()`
       CREATE TABLE IF NOT EXISTS withdrawals (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id VARCHAR(255) NOT NULL,
@@ -54,27 +61,27 @@ export async function POST() {
 
     // Add missing columns to existing withdrawals table (for databases created with old schema)
     try {
-      await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS user_name VARCHAR(255) DEFAULT 'User'`
+      await getSql()`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS user_name VARCHAR(255) DEFAULT 'User'`
     } catch (e) { /* column may already exist */ }
 
     try {
-      await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS method_name VARCHAR(255)`
+      await getSql()`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS method_name VARCHAR(255)`
     } catch (e) { /* column may already exist */ }
 
     try {
-      await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS verified_by VARCHAR(255)`
+      await getSql()`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS verified_by VARCHAR(255)`
     } catch (e) { /* column may already exist */ }
 
     try {
-      await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP`
+      await getSql()`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP`
     } catch (e) { /* column may already exist */ }
 
     try {
-      await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS rejected_reason TEXT`
+      await getSql()`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS rejected_reason TEXT`
     } catch (e) { /* column may already exist */ }
 
     // Create user_balances table
-    await sql`
+    await getSql()`
       CREATE TABLE IF NOT EXISTS user_balances (
         user_id VARCHAR(255) PRIMARY KEY,
         balance DECIMAL(12,2) DEFAULT 0,
@@ -86,7 +93,7 @@ export async function POST() {
     `
 
     // Create transactions table
-    await sql`
+    await getSql()`
       CREATE TABLE IF NOT EXISTS transactions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id VARCHAR(255) NOT NULL,
@@ -102,7 +109,7 @@ export async function POST() {
     `
 
     // Create users table
-    await sql`
+    await getSql()`
       CREATE TABLE IF NOT EXISTS users (
         id VARCHAR(255) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -117,13 +124,13 @@ export async function POST() {
 
     // Add exp column if not exists (for existing tables)
     try {
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS exp INTEGER DEFAULT 0`
+      await getSql()`ALTER TABLE users ADD COLUMN IF NOT EXISTS exp INTEGER DEFAULT 0`
     } catch (e) {
       // Column might already exist
     }
 
     // Create notifications table
-    await sql`
+    await getSql()`
       CREATE TABLE IF NOT EXISTS notifications (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id VARCHAR(255) NOT NULL,
@@ -136,7 +143,7 @@ export async function POST() {
     `
 
     // Create user_addresses table
-    await sql`
+    await getSql()`
       CREATE TABLE IF NOT EXISTS user_addresses (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id VARCHAR(255) UNIQUE NOT NULL,
@@ -148,15 +155,15 @@ export async function POST() {
     `
 
     // Create indexes
-    await sql`CREATE INDEX IF NOT EXISTS idx_pickups_user_id ON pickups(user_id)`
-    await sql`CREATE INDEX IF NOT EXISTS idx_pickups_status ON pickups(status)`
-    await sql`CREATE INDEX IF NOT EXISTS idx_withdrawals_user_id ON withdrawals(user_id)`
-    await sql`CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status)`
-    await sql`CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id)`
-    await sql`CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type)`
-    await sql`CREATE INDEX IF NOT EXISTS idx_users_exp ON users(exp DESC)`
-    await sql`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)`
-    await sql`CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(user_id, is_read)`
+    await getSql()`CREATE INDEX IF NOT EXISTS idx_pickups_user_id ON pickups(user_id)`
+    await getSql()`CREATE INDEX IF NOT EXISTS idx_pickups_status ON pickups(status)`
+    await getSql()`CREATE INDEX IF NOT EXISTS idx_withdrawals_user_id ON withdrawals(user_id)`
+    await getSql()`CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status)`
+    await getSql()`CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id)`
+    await getSql()`CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type)`
+    await getSql()`CREATE INDEX IF NOT EXISTS idx_users_exp ON users(exp DESC)`
+    await getSql()`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)`
+    await getSql()`CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(user_id, is_read)`
 
     return Response.json({
       success: true,
@@ -176,7 +183,7 @@ export async function POST() {
 export async function GET() {
   try {
     // Check existing tables
-    const tables = await sql`
+    const tables = await getSql()`
       SELECT table_name FROM information_schema.tables
       WHERE table_schema = 'public'
     `

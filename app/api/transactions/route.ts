@@ -1,6 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -12,14 +19,12 @@ export async function GET(req: Request) {
   }
 
   try {
-    let query
+    let transactions
     if (type) {
-      query = sql`SELECT * FROM transactions WHERE user_id = ${userId} AND type = ${type} ORDER BY created_at DESC LIMIT 50`
+      transactions = await getSql()`SELECT * FROM transactions WHERE user_id = ${userId} AND type = ${type} ORDER BY created_at DESC LIMIT 50`
     } else {
-      query = sql`SELECT * FROM transactions WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 50`
+      transactions = await getSql()`SELECT * FROM transactions WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 50`
     }
-
-    const transactions = await query
     return Response.json(transactions)
   } catch (error) {
     console.error('Get transactions error:', error)

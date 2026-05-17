@@ -1,6 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 // Get timestamp in Indonesia timezone (WIB = UTC+7)
 function getISTDate() {
@@ -20,7 +27,7 @@ export async function GET(req: Request) {
 
   try {
     // Get user balance from user_balances table
-    const balanceResult = await sql`
+    const balanceResult = await getSql()`
       SELECT * FROM user_balances WHERE user_id = ${userId}
     `
 
@@ -39,7 +46,7 @@ export async function GET(req: Request) {
 
     // Get pending withdrawals to calculate available balance
     // (withdrawals with status 'Menunggu Verifikasi' are locked but not yet deducted)
-    const pendingWithdrawals = await sql`
+    const pendingWithdrawals = await getSql()`
       SELECT COALESCE(SUM(CAST(amount AS NUMERIC)), 0) as total
       FROM withdrawals
       WHERE user_id = ${userId} AND status = 'Menunggu Verifikasi'
@@ -48,7 +55,7 @@ export async function GET(req: Request) {
     const availableBalance = Math.max(0, balance - lockedAmount)
 
     // Get all transactions for history
-    const transactionsResult = await sql`
+    const transactionsResult = await getSql()`
       SELECT * FROM transactions
       WHERE user_id = ${userId}
       ORDER BY created_at DESC
@@ -56,7 +63,7 @@ export async function GET(req: Request) {
     `
 
     // Get pending withdrawals
-    const pendingResult = await sql`
+    const pendingResult = await getSql()`
       SELECT * FROM withdrawals
       WHERE user_id = ${userId} AND status = 'Menunggu Verifikasi'
     `

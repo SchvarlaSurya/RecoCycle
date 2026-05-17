@@ -1,6 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -17,7 +24,7 @@ export async function GET(req: Request) {
     let totalPenarikan = 0
 
     try {
-      const userData = await sql`SELECT * FROM user_balances WHERE user_id = ${userId}`
+      const userData = await getSql()`SELECT * FROM user_balances WHERE user_id = ${userId}`
       if (userData.length > 0) {
         const row = userData[0]
         balance = parseFloat(row.balance) || 0
@@ -33,7 +40,7 @@ export async function GET(req: Request) {
     let totalTransactions = 0
 
     try {
-      const pickupsTotal = await sql`
+      const pickupsTotal = await getSql()`
         SELECT COALESCE(SUM(CAST(weight_kg AS NUMERIC)), 0) as total_kg, COUNT(*) as total_count
         FROM pickups
         WHERE user_id = ${userId} AND status IN ('verified', 'selesai', 'terverifikasi')
@@ -48,7 +55,7 @@ export async function GET(req: Request) {
     const now = new Date()
     const weeklyTrend = []
     try {
-      const weeklyData = await sql`
+      const weeklyData = await getSql()`
         SELECT DATE(COALESCE(verified_at, created_at)) as date, SUM(CAST(weight_kg AS NUMERIC)) as kg
         FROM pickups
         WHERE user_id = ${userId}
@@ -89,7 +96,7 @@ export async function GET(req: Request) {
     let distribution: any[] = []
     let topWaste: any[] = []
     try {
-      const distributionRaw = await sql`
+      const distributionRaw = await getSql()`
         SELECT waste_name, SUM(CAST(weight_kg AS NUMERIC)) as kg
         FROM pickups
         WHERE user_id = ${userId}
@@ -119,7 +126,7 @@ export async function GET(req: Request) {
     // Get recent transactions
     let recentTransactions: any[] = []
     try {
-      const recentTx = await sql`
+      const recentTx = await getSql()`
         SELECT id, type, reward, amount, status, created_at
         FROM transactions
         WHERE user_id = ${userId}

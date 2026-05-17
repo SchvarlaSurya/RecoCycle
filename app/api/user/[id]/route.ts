@@ -1,12 +1,19 @@
 import { neon } from '@neondatabase/serverless'
 
-const sql = neon(process.env.DATABASE_URL!)
+const ADMIN_SECRET = 'reocycle_admin_secret_2024_secure'
+
+function getSql() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+  return neon(process.env.DATABASE_URL)
+}
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
   try {
-    const user = await sql`SELECT * FROM user_balances WHERE user_id = ${id}`
+    const user = await getSql()`SELECT * FROM user_balances WHERE user_id = ${id}`
     if (user.length > 0) {
       return Response.json(user[0])
     }
@@ -39,7 +46,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { balance, action, amount } = body
 
     if (action === 'add') {
-      await sql`
+      await getSql()`
         INSERT INTO user_balances (user_id, balance, total_setoran, updated_at)
         VALUES (${id}, ${balance || 0}, ${amount || 0}, NOW())
         ON CONFLICT (user_id) DO UPDATE SET
@@ -50,7 +57,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     if (action === 'deduct') {
-      await sql`
+      await getSql()`
         INSERT INTO user_balances (user_id, balance, total_penarikan, updated_at)
         VALUES (${id}, 0, 0, NOW())
         ON CONFLICT (user_id) DO UPDATE SET
