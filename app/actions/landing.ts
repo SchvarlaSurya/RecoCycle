@@ -57,7 +57,7 @@ export async function getLandingStats(): Promise<LandingStats> {
         ORDER BY total_weight DESC
         LIMIT 5
       `;
-      topWastes = topWastesRes.map(row => ({
+      topWastes = topWastesRes.map((row: any) => ({
         type: String(row.type),
         total_weight: Number(row.total_weight)
       }));
@@ -70,7 +70,7 @@ export async function getLandingStats(): Promise<LandingStats> {
         ORDER BY total_weight DESC
         LIMIT 5
       `;
-      topWastes = topWastesRes.map(row => ({
+      topWastes = topWastesRes.map((row: any) => ({
         type: String(row.type),
         total_weight: Number(row.total_weight)
       }));

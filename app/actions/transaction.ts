@@ -32,19 +32,19 @@ export async function getUserDashboardData() {
     // Calculate total balance from DB source of truth
     // Support both legacy and current "completed" statuses.
     const totalEarnings = transactions
-      .filter(tx => tx.status === "verified" || tx.status === "Selesai")
-      .reduce((sum, tx) => sum + Number(tx.reward), 0);
+      .filter((tx: any) => tx.status === "verified" || tx.status === "Selesai")
+      .reduce((sum: number, tx: any) => sum + Number(tx.reward), 0);
 
     const totalWithdrawnAndPending = withdrawals
-      .filter((w) => w.status !== "Ditolak")
-      .reduce((sum, w) => sum + Number(w.amount), 0);
+      .filter((w: any) => w.status !== "Ditolak")
+      .reduce((sum: number, w: any) => sum + Number(w.amount), 0);
     
     const realBalance = totalEarnings - totalWithdrawnAndPending;
 
     return {
       success: true,
       balance: realBalance,
-      transactions: transactions.map(tx => ({
+      transactions: transactions.map((tx: any) => ({
         id: tx.idStr,
         type: tx.type,
         weight: Number(tx.weight),
@@ -52,7 +52,7 @@ export async function getUserDashboardData() {
         date: new Date(tx.date).toISOString().split('T')[0],
         status: tx.status
       })),
-      withdrawals: withdrawals.map(w => ({
+      withdrawals: withdrawals.map((w: any) => ({
         id: w.idStr,
         method: w.method,
         accountName: w.accountName,
@@ -209,7 +209,7 @@ export async function getGlobalWasteStats() {
     }
 
     // Map distribution to numbers since NUMERIC comes out as string in postgres node drivers
-    const distribution = distributionRaw.map(row => ({
+    const distribution = distributionRaw.map((row: any) => ({
       name: row.name,
       value: Number(row.value)
     }));
@@ -230,7 +230,7 @@ export async function getGlobalWasteStats() {
       weeklyMap[dateStr] = 0;
     }
 
-    weeklyRaw.forEach(row => {
+    weeklyRaw.forEach((row: any) => {
       // row.dt might be Date object, convert to string YYYY-MM-DD
       const dateStr = new Date(row.dt).toISOString().split('T')[0];
       if (weeklyMap[dateStr] !== undefined) {
@@ -238,7 +238,7 @@ export async function getGlobalWasteStats() {
       }
     });
 
-    const weeklyTrend = Object.keys(weeklyMap).map(date => {
+    const weeklyTrend = Object.keys(weeklyMap).map((date: any) => {
       const parts = date.split("-");
       return {
         date: `${parts[2]}/${parts[1]}`, // DD/MM format
@@ -275,7 +275,7 @@ export async function getWasteCatalog(): Promise<{
     `;
     return {
       success: true,
-      data: catalog.map(item => ({
+      data: catalog.map((item: any) => ({
         id: String(item.id),
         name: String(item.name),
         category: String(item.category),

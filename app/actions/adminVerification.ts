@@ -393,7 +393,7 @@ export async function getAllUsers(): Promise<{ success: boolean; users?: UserWit
   try {
     const client = await clerkClient();
     const clerkUsers = await client.users.getUserList({ limit: 100 });
-    const userIds = clerkUsers.data.map(u => u.id);
+    const userIds = clerkUsers.data.map((u: any) => u.id);
     
     // Fetch profiles (with only existing columns)
     const profileRowsResult = await sql`SELECT * FROM user_profiles WHERE user_id = ANY(${userIds})`;
@@ -420,15 +420,15 @@ export async function getAllUsers(): Promise<{ success: boolean; users?: UserWit
     `;
 
     const profileMap = new Map<string, UserProfileRow>();
-    profileRows.forEach(p => profileMap.set(p.user_id, p));
+    profileRows.forEach((p: any) => profileMap.set(p.user_id, p));
 
     const statsMap = new Map<string, any>();
-    statsRows.forEach(s => statsMap.set(s.user_id, s));
+    statsRows.forEach((s: any) => statsMap.set(s.user_id, s));
 
     const withdrawalMap = new Map<string, any>();
-    withdrawalRows.forEach(w => withdrawalMap.set(w.user_id, w));
+    withdrawalRows.forEach((w: any) => withdrawalMap.set(w.user_id, w));
 
-    const users: UserWithProfile[] = clerkUsers.data.map(u => {
+    const users: UserWithProfile[] = clerkUsers.data.map((u: any) => {
       const profile = profileMap.get(u.id);
       const stats = statsMap.get(u.id);
       const wd = withdrawalMap.get(u.id);
@@ -486,7 +486,7 @@ export async function getActivityLog(limit: number = 50): Promise<{ success: boo
 
     return {
       success: true,
-      logs: logs.map(l => ({
+      logs: logs.map((l: any) => ({
         id: l.id,
         adminUserId: l.admin_user_id,
         adminName: l.admin_name,

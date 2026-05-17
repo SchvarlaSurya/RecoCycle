@@ -72,14 +72,14 @@ export async function getDashboardOverviewStats(): Promise<{ success: boolean; d
       weeklyMap[dateStr] = 0;
     }
 
-    weeklyDataResult.forEach(row => {
+    weeklyDataResult.forEach((row: any) => {
       const dateStr = new Date(row.dt).toISOString().split('T')[0];
       if (weeklyMap[dateStr] !== undefined) {
         weeklyMap[dateStr] += Number(row.total);
       }
     });
 
-    const weeklyTrend = Object.keys(weeklyMap).sort().map(date => {
+    const weeklyTrend = Object.keys(weeklyMap).sort().map((date: any) => {
       const parts = date.split("-");
       return {
         date: `${parts[2]}/${parts[1]}`, // DD/MM format
@@ -94,7 +94,7 @@ export async function getDashboardOverviewStats(): Promise<{ success: boolean; d
         todayWeight: Number(todayWeightResult[0]?.total || 0),
         pendingCount: Number(pendingResult[0]?.count || 0),
         activeNasabahCount: Number(activeNasabahResult[0]?.count || 0),
-        monthlyByCategory: monthlyCategoryResult.map(c => ({ name: c.type, weight: Number(c.total) })),
+        monthlyByCategory: monthlyCategoryResult.map((c: any) => ({ name: c.type, weight: Number(c.total) })),
         weeklyData: weeklyTrend,
       }
     };

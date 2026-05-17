@@ -95,7 +95,7 @@ export async function getRewardsStatus() {
     const claimedSet = new Set((claimsRes as RewardClaimRow[]).map((claim) => claim.reward_id));
 
     // 3. Gabungkan status untuk UI
-    const catalogWithStatus = REWARDS_CATALOG.map(reward => {
+    const catalogWithStatus = REWARDS_CATALOG.map((reward: any) => {
       const isClaimed = claimedSet.has(reward.id);
       const canClaim = !isClaimed && userXp >= reward.requiredXp;
       
@@ -106,7 +106,7 @@ export async function getRewardsStatus() {
       };
     });
 
-    const claimableCount = catalogWithStatus.filter(r => r.canClaim).length;
+    const claimableCount = catalogWithStatus.filter((r: any) => r.canClaim).length;
 
     return { 
       success: true, 

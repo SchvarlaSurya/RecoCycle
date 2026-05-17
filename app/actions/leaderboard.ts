@@ -28,7 +28,7 @@ export async function getRegisteredUsers() {
         AND date >= date_trunc('month', NOW())
       GROUP BY user_id
     `;
-    const profileMap = new Map(profiles.map(p => [p.user_id, Number(p.total_xp)]));
+    const profileMap = new Map(profiles.map((p: any) => [p.user_id, Number(p.total_xp)]));
 
     return users.data.map((user) => {
       const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || 'Eco Warrior';

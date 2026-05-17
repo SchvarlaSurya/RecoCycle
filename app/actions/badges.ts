@@ -44,11 +44,11 @@ export async function getUserBadges() {
       WHERE user_id = ${userId}
     `;
 
-    const unlockedMap = new Map(unlocked.map(b => [b.badge_id, b.unlocked_at]));
+    const unlockedMap = new Map(unlocked.map((b: any) => [b.badge_id, b.unlocked_at]));
 
-    const badges: BadgeInfo[] = BADGE_CATALOG.map(b => ({
+    const badges: BadgeInfo[] = BADGE_CATALOG.map((b: any) => ({
       ...b,
-      unlockedAt: unlockedMap.get(b.id) || null
+      unlockedAt: (unlockedMap.get(b.id) as string | undefined) || null
     }));
 
     return { success: true, data: badges };
@@ -94,7 +94,7 @@ export async function evaluateBadges() {
 
     // Cek badge mana yang belum di-unlock
     const existingRes = await sql`SELECT badge_id FROM user_badges WHERE user_id = ${userId}`;
-    const existingBadges = new Set(existingRes.map(r => r.badge_id));
+    const existingBadges = new Set(existingRes.map((r: any) => r.badge_id));
 
     const newlyUnlocked: any[] = [];
     

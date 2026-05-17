@@ -69,7 +69,7 @@ export async function getUserWithdrawals() {
 
     return {
       success: true,
-      withdrawals: withdrawals.map(w => ({
+      withdrawals: withdrawals.map((w: any) => ({
         ...w,
         amount: Number(w.amount),
         lockedAmount: Number(w.lockedAmount),
@@ -103,7 +103,7 @@ export async function getPendingWithdrawals() {
 
     return {
       success: true,
-      withdrawals: withdrawals.map(w => ({
+      withdrawals: withdrawals.map((w: any) => ({
         ...w,
         amount: Number(w.amount),
         lockedAmount: Number(w.lockedAmount),

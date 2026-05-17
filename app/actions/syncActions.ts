@@ -212,7 +212,7 @@ export async function getLatestUserData() {
     const balance = totalEarnings;
     const availableBalance = totalEarnings - lockedPending;
 
-    const mappedTransactions: DashboardTransaction[] = transactions.map(tx => ({
+    const mappedTransactions: DashboardTransaction[] = transactions.map((tx: any) => ({
       id: tx.tx_id,
       wasteType: tx.waste_type,
       wasteTypeId: tx.waste_type_id || "",
@@ -227,7 +227,7 @@ export async function getLatestUserData() {
       createdAt: tx.created_at.toISOString(),
     }));
 
-    const mappedWithdrawals: DashboardWithdrawal[] = withdrawals.map(w => ({
+    const mappedWithdrawals: DashboardWithdrawal[] = withdrawals.map((w: any) => ({
       id: w.wd_id,
       method: w.method,
       accountName: w.account_name,
@@ -238,7 +238,7 @@ export async function getLatestUserData() {
       date: w.date.toISOString().split("T")[0],
     }));
 
-    const mappedNotifications: DashboardNotification[] = notifications.map(n => ({
+    const mappedNotifications: DashboardNotification[] = notifications.map((n: any) => ({
       id: n.id,
       title: n.title,
       message: n.message,
@@ -319,7 +319,7 @@ export async function getLatestDashboardData() {
       : 0;
     const tierInfo = calculateTierInfo(cumulativeWeight);
 
-    const mappedTransactions: DashboardTransaction[] = transactions.map(tx => ({
+    const mappedTransactions: DashboardTransaction[] = transactions.map((tx: any) => ({
       id: tx.tx_id,
       wasteType: tx.waste_type,
       wasteTypeId: tx.waste_type_id || "",
@@ -334,7 +334,7 @@ export async function getLatestDashboardData() {
       createdAt: tx.created_at.toISOString(),
     }));
 
-    const mappedWithdrawals: DashboardWithdrawal[] = withdrawals.map(w => ({
+    const mappedWithdrawals: DashboardWithdrawal[] = withdrawals.map((w: any) => ({
       id: w.wd_id,
       method: w.method,
       accountName: w.account_name,
@@ -345,7 +345,7 @@ export async function getLatestDashboardData() {
       date: w.date.toISOString().split("T")[0],
     }));
 
-    const mappedNotifications: DashboardNotification[] = notifications.map(n => ({
+    const mappedNotifications: DashboardNotification[] = notifications.map((n: any) => ({
       id: n.id,
       title: n.title,
       message: n.message,
@@ -398,7 +398,7 @@ export async function getLatestAdminData() {
     const pendingWithdrawals = pendingWithdrawalsRows as { count: number }[];
     const recentLogs = recentLogsRows as { id: number; action: string; target: string; detail: string; created_at: Date }[];
 
-    const mappedLogs: ActivityLogEntry[] = recentLogs.map(log => ({
+    const mappedLogs: ActivityLogEntry[] = recentLogs.map((log: any) => ({
       id: log.id,
       action: log.action,
       target: log.target || "",

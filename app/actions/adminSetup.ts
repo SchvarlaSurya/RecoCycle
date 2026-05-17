@@ -53,7 +53,7 @@ export async function listAllUsers() {
 
     return {
       success: true,
-      users: users.data.map(u => ({
+      users: users.data.map((u: any) => ({
         id: u.id,
         email: u.emailAddresses[0]?.emailAddress,
         firstName: u.firstName,
